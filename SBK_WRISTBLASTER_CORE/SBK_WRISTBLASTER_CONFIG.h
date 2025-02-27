@@ -37,7 +37,9 @@
  *      Bar Meter Driver PCBs ->        SBK_WB_BG_SK_DR V0
  *      Bar Meter holder PCB ->         SBK_WB_BG_28SEG V0
  *      Bar Meter ->                    BL28Z-3005SK common cathode
- *      Fire Button ->                  With a Yellow led indicator 20mA, 1.8-2.0V forward voltage.
+ *      Fire Button ->                  With a led indicator : led should be less then 20mA with the proper serie resistor do limit forward voltage.
+ *                                      SBK_WRISTBLASTER_II V0 pcb provide emplacement for a led resistor. 
+ *                                      Per exemple, a yellow 20mA 1.8-2.0V forward voltage led should have a 150 Ohms serie resistor on a 5v driving signal from the MCU pin.
  *      Intensify switch/button ->      Set up for a SWITCH, but can be changed for a PUSH BUTTON setup in the SWITCHES AND BUTTONS section.
  *      Sofware volume potentiometer
  *      Firing strob hue potentiometer
