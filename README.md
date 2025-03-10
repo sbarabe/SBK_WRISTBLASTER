@@ -69,7 +69,7 @@ This project is specifically designed for prop enthusiasts, cosplayers, and make
 
 ## Schematic
 
-The following schematics show the wiring using the SBK custom PCBs, making the assembly easier and cleaner. Using the SBK_BG_xx_DRIVER for the bar meter and the SBK_BG_28SEG with MAX7221 simplifies the LED matrix connection. The fan and vacuum pump are also directly powered from the PCB's dedicated 5V outputs.
+The provided schematics show the wiring using the SBK custom PCBs, making the assembly easier and cleaner. Using the SBK_BG_xx_DRIVER for the bar meter and the SBK_BG_28SEG with MAX7221 simplifies the LED matrix connection. The fan and vacuum pump are also directly powered from the PCB's dedicated 5V outputs.
 
 ## Demo Video
 
