@@ -28,6 +28,7 @@ This project is designed specifically for prop enthusiasts, cosplayers, and make
 - 1x 16mm Momentary Push Button with yellow led indicator R16-503
 - 1x 28segments bar meter BL28-3000-Sx04Y
 - Proper led driver PCBs for bar meter (HT16K33 or MAX72xx driver) : we suggest using the SBK_BG_xx_DRIVER and SBK_BG_28SEG PCBs using MAX7221 leds driver.
+- Power pack 6-12V : we suggest using a 6V NiMh flat pack that fits the battery holder 3D model in this project, but it's up to your choice.
 
 ## Installation
 
@@ -37,18 +38,25 @@ This project is designed specifically for prop enthusiasts, cosplayers, and make
 git clone https://github.com/SmartBuildsKits/SBK_WRISTBLASTER_CORE.git
 cd SBK_WRISTBLASTER_CORE
 ```
+2.  **Move the files in the right folders**
 
-2. **Install required libraries**:
+- Put **SBK_WRISTBLATER_CORE.ino** and **SBK_WRISTBLATER_CONFIG.h** files in a folder name "SBK_WRISTBLATER_CORE" in your Arduino IDE **sketch** folder.
+- Put the **SBK_WristBlaster_lib** folder in the Arduino Ide **sketch/library** folder.
 
-```bash
-pip install Adafruit_NeoPixel
-pip install DFPlayerMini_Fast
-```
+3. **Install required libraries**:
+   
+Open **Arduino IDE** and install those libraries *with all dependancies* with the Libraries Manager :
+    **Adafruit_NeoPixel.h**
+    **DFPlayerMini_Fast.h**
 
 3. **Upload the code**:
 
-- Open the project in **PlatformIO** or Arduino IDE.
-- Select **Arduino Nano** as the board.
+- Open the **SBK_WRISTBLATER_CORE.ino** file in **Arduino IDE**.
+- You'll see two tabs in your Arduino IDE : one is the configuration file, the other one is the main code file.
+- You don't need to modify the main code file **SBK_WRISTBLATER_CORE.ino**, leave it as it is.
+- Verify your configuration and options in the **SBK_WRISTBLATER_CONFIG.h** file.
+- Plug your Arduino Nano Every board to your computer with the rigth USB cable.
+- Select the COM port and **Arduino Nano Every** as the board.
 - Upload the sketch.
 
 ## Usage
