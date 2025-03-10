@@ -122,7 +122,7 @@
 /*********************************************/
 /*          SWITCHES AND BUTTONS             */
 /*********************************************/
-#include "WB_SwitchEngine.h"
+#include "SBK_WB_SwitchEngine.h"
 // INTENSIFY BUTTON OR SWITCH
 // If your Intensify push button is replaced by a switch in your Wrist Blaster, set this to "true".
 // Intensify is a Push Button, set this to "false".
@@ -131,7 +131,7 @@ const bool INTENSIFY_IS_A_SWITCH = true;
 /*********************************************/
 /*               SMOKE MACHINE               */
 /*********************************************/
-#include "WB_SmokeEngine.h"
+#include "SBK_WB_SmokeEngine.h"
 // DEFINE the maximum time that the smoker can be ON
 const uint16_t SMOKER_MAX_ON_TIME = 15000; // in ms
 // DEFINE the minimum OFF time of the smoker, ti prevent short cylcing
@@ -147,7 +147,7 @@ const uint16_t SMOKER_MIN_OFF_TIME = 10000; // in ms
 /*********************************************/
 /*           BAR METER & DRIVER(s)           */
 /*********************************************/
-#include "WB_BarMeterEngine.h"
+#include "SBK_WB_BarMeterEngine.h"
 /* DEFINE BAR METER TOTAL NUMBER OF SEGEMENTS*/
 const uint8_t SEG_NUMBER = 28;
 const bool BM_DIRECTION = REVERSE; // animation direction (FORWARD/REVERSE)
@@ -245,7 +245,7 @@ const uint8_t BM_SEG_MAP[28][2] = {
 /*********************************************/
 /*            WS2812 lEDS STRIP              */
 /*********************************************/
-#include "WB_LedsStripEngine.h"
+#include "SBK_WB_LedsStripBaseEngine.h"
 const uint8_t TOTAL_LEDS_NUMBER = 19; // vent + indicators + firing jewel + cyclotron total WS21812 pixels
 /***********************************************/
 /*             LEDS INDEX                 */
@@ -255,21 +255,21 @@ const uint8_t TOTAL_LEDS_NUMBER = 19; // vent + indicators + firing jewel + cycl
 // Cyclotron, vent, indicators and firing tip index in the WS2812 wrist blaster chain :
 const uint8_t LED_INDEX_CYC_START = 0;
 const uint8_t LED_INDEX_CYC_END = 6;
-const uint8_t LED_INDEX_VENT = 10;
 const uint8_t LED_INDEX_SLOWBLOW = 7;      // Indicator
 const uint8_t LED_INDEX_TOP_YELLOW = 8;    // Indicator
 const uint8_t LED_INDEX_TOP_WHITE = 9;     // Indicator
+const uint8_t LED_INDEX_VENT = 10;
 const uint8_t LED_INDEX_FRONT_ORANGE = 11; // Indicator
 const uint8_t LED_INDEX_TIP_1ST = 12;
 const uint8_t LED_INDEX_TIP_LAST = 18;
 /***********************************************/
 /*                  VENT LED                   */
 /***********************************************/
-#include "WB_VentEngine.h"
+#include "SBK_WB_VentEngine.h"
 /***********************************************/
 /*               CYCLOTRON LEDs                */
 /***********************************************/
-#include "WB_CyclotronEngine.h"
+#include "SBK_WB_CyclotronEngine.h"
 const bool CYCLOTRON_DIRECTION = FORWARD; // animation direction (FORWARD/REVERSE)
 // Cyclotron ring and center positions pixels for the index in the WS2812 wrist blaster chain
 // Cyclotron jewel has 7 pixels
@@ -281,7 +281,7 @@ const uint8_t CYC_CENTER = 6;
 /***********************************************/
 /*               FIRE ROD LEDs                */
 /***********************************************/
-#include "WB_RodEngine.h"
+#include "SBK_WB_RodEngine.h"
 // Fire Rod jewel has 7 pixels
 const uint8_t ROD_NUMLEDS = 7;
 // HUE POTENTIOMETER :
@@ -291,7 +291,7 @@ const bool HUE_POT_READY = ENABLE;
 /***********************************************/
 /*               INDICATORS LEDs               */
 /***********************************************/
-#include "WB_IndicatorEngine.h"
+#include "SBK_WB_IndicatorEngine.h"
 // Indicator flashing speeds
 const uint8_t FAST_BLINK_SP = 100;
 const uint16_t MEDIUM_BLINK_SP = 500;
@@ -312,7 +312,7 @@ const bool FIRE_BUTTON_LED_READY = ENABLE;
 /*                                           */
 /*********************************************/
 #include <SoftwareSerial.h>
-#include "WB_PlayerEngine.h"
+#include "SBK_WB_PlayerEngine.h"
 const uint8_t VOLUME_MAX = 30;            // 0-30 If you want to reduce the maximum possible volume according to your amp module, set this here
 const uint8_t VOLUME_START = 20;          // 0-30 Volume at star-up, will not change if volume potentiometer doesn't exist
 const uint8_t PLAYER_COMMAND_DELAY = 150; // short delay between query/ commands : some player(s) will behave weirdly if there is no delay

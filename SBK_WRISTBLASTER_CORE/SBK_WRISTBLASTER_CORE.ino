@@ -92,7 +92,7 @@
  *    and modules :
  *
  *    - For WS2812 LEDs :      Adafruit_NeoPixel.h (https://github.com/adafruit/Adafruit_NeoPixel)
- *    - For DFPlayer Mini :    DFPlayerMini_Fast.h (https://github.com/PowerBroker2/DFPlayerMini_Fast)
+ *    - For DFPlayer Mini :    DFPlayerMine_Fast.h (https://github.com/PowerBroker2/DFPlayerMini_Fast)
  *
  *    *** ADVANCED USERS ONLY ***
  *    If you want to change animations styles and colors, you need to go in the engines files and modified the
