@@ -45,7 +45,7 @@ cd SBK_WRISTBLASTER_CORE
 
 3. **Install required libraries**:
    
-Open **Arduino IDE** and install those libraries *with all dependancies* with the Libraries Manager :
+   Open **Arduino IDE** and install those libraries *with all dependancies* with the Libraries Manager :
     **Adafruit_NeoPixel.h**
     **DFPlayerMini_Fast.h**
 
