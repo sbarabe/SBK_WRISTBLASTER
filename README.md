@@ -102,16 +102,16 @@ This means:
 
 For more details, see the full license text: CC BY-NC 4.0.
 
-##Author & Collaborator
+## Author & Collaborator
 
-#Author: Samuel Barabé
+# Author: Samuel Barabé
 
 👨‍💻 Father of four, engineer, outdoor enthusiast, and passionate maker.
 🛠 Addicted to MCU programming, coding, and 3D design.
 👻 Inspired by the rugged, prototype-like aesthetic of Ghostbusters devices.
 💡 This project was born from my love for creative electronics, practical prototyping, and immersive props.
 
-#Collaborator: David Miyakawa
+# Collaborator: David Miyakawa
 
 🎨 Talented graphic designer with a deep love for the Ghostbusters lore.
 🎶 Major contributor to sound effects design, prop look development and screen-accurate, device work flow.
