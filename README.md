@@ -21,7 +21,7 @@ This project is intended for prop enthusiasts, cosplayers, and makers who want t
 - 🔥 **Heat Level Simulation:** LED bar that rises with the "heat level" and gradually cools down when not in use.
 - 🎛 **Potentiometer Control:** Adjust volume and firing strobe hue.
 - 📟 **MAX7219 or HT16K33 Support:** Custom bar meter display using MAX7219 or HT16K33 LED drivers.
-- 💨 Vacuum Pump and Fan Outputs: Dedicated 5V outputs (0.5A max each) for controlling smoke effects, fully integrated on the PCB.
+- 💨 **Vacuum Pump and Fan Outputs:** Dedicated 5V outputs (0.5A max each) for controlling smoke effects, fully integrated on the PCB.
 - 🎮 **Standalone Operation:** The code can run without a functional player, making debugging easier.
 - 📊 **Serial Debugging:** Real-time debugging through the Arduino IDE.
 
@@ -79,7 +79,7 @@ This project is intended for prop enthusiasts, cosplayers, and makers who want t
 
 ## Sound Effects
 
-Sound effects examples are provided for this project. They fit the firmware track numbers and lengths defined in the config file. Each sound effect should be placed in the correct order on the Player's SD card root folder. Additional tracks can be placed in the "/01" folder of the SD card; these tracks will play in Party Mode.
+Sound effects examples are provided for this project. They fit the tracks numbers and lengths defined in the firmware config file. Since DFPlayer play file not by name but by the order they have been written on the SD card, each sound effect should be placed one by one in the correct order on clean formated SD card root folder. Additional tracks can be placed in the "/01" folder of the SD card; these tracks will play in Party Mode.
 
 **Disclaimer**: The sound effects in this project are derived from the *Ghostbusters* movies and video games, which are commonly available within the *Ghostbusters* community. These sounds are not owned by me, and the original works are copyrighted by their respective owners. The sound effects here have been edited, cut, and remixed for use in this project. No copyright infringement is intended. It is your responsibility to ensure that your use of these sound effects does not violate copyright laws.
 
