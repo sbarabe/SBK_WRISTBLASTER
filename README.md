@@ -86,9 +86,11 @@ Sound effects examples are provided for this project. They fit the firmware trac
 ## Usage
 
 - **Power On:** Flip the main power switch.
-- **Fire Mode:** Press the trigger button to initiate the firing sequence with synchronized LED and sound effects.
-- **Cooling Mode:** The LED bar graph gradually decreases to simulate cooldown after firing.
-- **Party Mode:** Engage a looping lighting effect with synchronized sound playback.
+- **Cyclotron On:** Flip the cyclotron switch, you can fire when switch is on.
+- **Fire Type:** Flip Activate Switch to select between Capture or Burst Fire.
+- **Fire :** Press the trigger button to initiate the firing sequence with synchronized LED and sound effects.
+- **Overheat:** Blaster will overheat, vent and reboot after a few Burst shots or a Long Capture shot.
+- **Party Mode:** Engage in playback mode.
 
 ## Schematics
 
