@@ -2,7 +2,7 @@
 
 ## Overview
 
-The **SBK_WRISTBLASTER_CORE** is a firmware for a custom-built wrist blaster prop, designed to control LED animations, sound effects, and mechanical features through an Arduino Nano Every.
+The **SBK_WRISTBLASTER_CORE** is a firmware for a custom-built wrist blaster prop, inspired by the Ghostbusters: Frozen Empire movie. It is designed to control LED animations, sound effects, and mechanical features through an Arduino Nano Every.
 
 This project is specifically designed for prop enthusiasts, cosplayers, and makers who want to build a realistic and interactive wrist blaster with dynamic lighting effects and customizable sound.
 
@@ -31,7 +31,7 @@ This project is specifically designed for prop enthusiasts, cosplayers, and make
 - **Proper LED Driver PCBs for the Bar Meter** (using HT16K33 or MAX72xx drivers). We recommend using the **SBK_BG_xx_DRIVER** and **SBK_BG_28SEG** PCBs with MAX7221 LED drivers.
 - **6-12V Power Pack:** We suggest using a 6V NiMh flat pack that fits the battery holder 3D model in this project, but you may choose your own power source.
 
-## Installation
+## Firmware Installation
 
 1. **Download the files:**
 
@@ -41,8 +41,8 @@ This project is specifically designed for prop enthusiasts, cosplayers, and make
 
 2. **Move the files to the correct folders:**
 
-- Place **SBK_WRISTBLASTER_CORE.ino** and **SBK_WRISTBLASTER_CONFIG.h** files in a folder named **"SBK_WRISTBLASTER_CORE"** inside your Arduino IDE sketch folder.
-- Place the **SBK_WristBlaster_lib** folder inside your Arduino IDE **libraries** folder.
+- Place **SBK_WRISTBLASTER_CORE.ino** and **SBK_WRISTBLASTER_CONFIG.h** files in a folder named **"SBK_WRISTBLASTER_CORE"** inside your Arduino IDE **Sketches** folder.
+- Place the **SBK_WristBlaster_lib** folder inside your Arduino IDE **Sketches\libraries** folder.
 
 3. **Install required libraries:**
 
@@ -69,7 +69,7 @@ This project is specifically designed for prop enthusiasts, cosplayers, and make
 
 ## Schematic
 
-The following schematics show the wiring using the SBK custom PCBs, making the assembly easier and cleaner. Using the SBK_BG_xx_DRIVER for the bar meter and the SBK_BG_28SEG with MAX7221 simplifies the LED matrix connection. The fan and vacuum pump are also directly powered from the PCB's dedicated 5V outputs.
+The provided schematics show the wiring using the SBK custom PCBs, making the assembly easier and cleaner. Using the SBK_BG_xx_DRIVER for the bar meter and the SBK_BG_28SEG with MAX7221 simplifies the LED matrix connection. The fan and vacuum pump are also directly powered from the PCB's dedicated 5V outputs.
 
 ## Demo Video
 
@@ -101,6 +101,20 @@ This means:
 ✅ You must give appropriate credit and link to the original project.
 
 For more details, see the full license text: CC BY-NC 4.0.
+
+## Author & Collaborator
+### Author: Samuel Barabé
+- 👨‍💻 Father of four, engineer, outdoor enthusiast, and passionate maker.
+- 🛠 Addicted to MCU programming, coding, and 3D design.
+- 👻 Inspired by the rugged, prototype-like aesthetic of Ghostbusters devices.
+- 💡 This project was born from my love for creative electronics, practical prototyping, and immersive props.
+- 🎁 I especially love making props for my children, bringing their favorite fictional worlds to life.
+
+### Collaborator: David Miyakawa
+- 🎨 Talented graphic designer with a deep love for the Ghostbusters lore.
+- 🎶 Major contributor to sound effects design, prop look development and screen-accurate, device work flow.
+- 🛠 Skilled in assembling, painting, and finishing props to high-quality standards.
+- 💡 David's input has been invaluable in achieving realistic soundscapes, design accuracy, and practical prop assembly.
 
 ## Contact
 
