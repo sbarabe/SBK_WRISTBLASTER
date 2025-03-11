@@ -3,9 +3,9 @@
 
  This model is part of the SBK Wrist Blaster Project
 
-   ![Alt Text](images/screenshot1.png)
+<img src="images/screenshot1.png" alt="Screenshot of PCB design" width="500"/>
 
-   ![Alt Text](images/screenshot2.png)
+<img src="images/screenshot2.png" alt="Screenshot of PCB design" width="500"/>
 
    ## License
 
