@@ -1,13 +1,18 @@
-# SBK_WRISTBLASTER_CORE 🚀
+# SBK_WRISTBLASTER 🚀
 
    <img src="images/screenshot1.png" alt="Screenshot of PCB design" width="500"/><img src="images/screenshot2.png" alt="Screenshot of PCB design" width="500"/>
 
-
 ## Overview
 
-The **SBK_WRISTBLASTER_CORE** is a firmware for a custom-built wrist blaster prop, inspired by the Ghostbusters: Frozen Empire movie. It is designed to control LED animations, sound effects, and mechanical features through an Arduino Nano Every.
+This project is for a custom-built wrist blaster prop, inspired by the *Ghostbusters: Frozen Empire* movie.
 
-This project is specifically designed for prop enthusiasts, cosplayers, and makers who want to build a realistic and interactive wrist blaster with dynamic lighting effects and customizable sound.
+The **SBK_WRISTBLASTER_CORE** firmware is designed to control LED animations, sound effects, and mechanical features using an Arduino Nano Every.
+
+A 3D model is provided for 3D printing parts for this project. While the SBK PCBs are designed to fit this model, they can also be used in other designs.
+
+The provided schematics utilize the SBK PCBs for easier assembly. Due to the restricted space inside the blaster, using these PCBs ensures that all components fit neatly inside.
+
+This project is intended for prop enthusiasts, cosplayers, and makers who want to create a realistic and interactive wrist blaster with dynamic lighting effects and customizable sound.
 
 ## Features
 
