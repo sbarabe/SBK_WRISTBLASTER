@@ -31,7 +31,7 @@ This project is specifically designed for prop enthusiasts, cosplayers, and make
 - **Proper LED Driver PCBs for the Bar Meter** (using HT16K33 or MAX72xx drivers). We recommend using the **SBK_BG_xx_DRIVER** and **SBK_BG_28SEG** PCBs with MAX7221 LED drivers.
 - **6-12V Power Pack:** We suggest using a 6V NiMh flat pack that fits the battery holder 3D model in this project, but you may choose your own power source.
 
-## Installation
+## Firmware Installation
 
 1. **Download the files:**
 
@@ -41,8 +41,8 @@ This project is specifically designed for prop enthusiasts, cosplayers, and make
 
 2. **Move the files to the correct folders:**
 
-- Place **SBK_WRISTBLASTER_CORE.ino** and **SBK_WRISTBLASTER_CONFIG.h** files in a folder named **"SBK_WRISTBLASTER_CORE"** inside your Arduino IDE sketch folder.
-- Place the **SBK_WristBlaster_lib** folder inside your Arduino IDE **libraries** folder.
+- Place **SBK_WRISTBLASTER_CORE.ino** and **SBK_WRISTBLASTER_CONFIG.h** files in a folder named **"SBK_WRISTBLASTER_CORE"** inside your Arduino IDE **Sketches** folder.
+- Place the **SBK_WristBlaster_lib** folder inside your Arduino IDE **Sketches\libraries** folder.
 
 3. **Install required libraries:**
 
