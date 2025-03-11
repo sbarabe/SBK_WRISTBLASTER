@@ -1,13 +1,14 @@
 # SBK WRISTBLASTER 3D MODEL
- 3D model for 3d printing of Ghostbusters : Frozem Empire inspired Wrist Blaster replica.
 
- This model is part of the SBK Wrist Blaster Project
+3D model for 3D printing of a *Ghostbusters: Frozen Empire* inspired Wrist Blaster replica.
 
-<img src="images/screenshot1.png" alt="Screenshot of PCB design" width="500"/>
+The 3D model provided is part of this project: [SBK_WRISTBLASTER](https://github.com/SmartBuildsKits/SBK_WRISTBLASTER).
 
-<img src="images/screenshot2.png" alt="Screenshot of PCB design" width="500"/>
+The SBK PCBs are initially designed to fit this model but can also be used in other models.
 
-   ## License
+<img src="images/screenshot1.png" alt="Screenshot of PCB design" width="400"/> <img src="images/screenshot2.png" alt="Screenshot of PCB design" width="400"/>
+
+## License
 
 Shield: [![CC BY 4.0][cc-by-shield]][cc-by]
 
@@ -28,21 +29,7 @@ This means:
 
 ✅ You must give appropriate credit and link to the original project.
 
-For more details, see the full license text: CC BY-NC 4.0.
-
-## Author & Collaborator
-### Author: Samuel Barabé
-- 👨‍💻 Father of four, engineer, outdoor enthusiast, and passionate maker.
-- 🛠 Addicted to MCU programming, coding, and 3D design.
-- 👻 Inspired by the rugged, prototype-like aesthetic of Ghostbusters devices.
-- 💡 This project was born from my love for creative electronics, practical prototyping, and immersive props.
-- 🎁 I especially love making props for my children, bringing their favorite fictional worlds to life.
-
-### Collaborator: David Miyakawa
-- 🎨 Talented graphic designer with a deep love for the Ghostbusters lore.
-- 🎶 Major contributor to sound effects design, prop look development and screen-accurate, device work flow.
-- 🛠 Skilled in assembling, painting, and finishing props to high-quality standards.
-- 💡 David's input has been invaluable in achieving realistic soundscapes, design accuracy, and practical prop assembly.
+For more details, see the full license text: [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/).
 
 ## Contact
 
@@ -53,6 +40,7 @@ For more details, see the full license text: CC BY-NC 4.0.
 ## Support
 
 💸 To keep this project alive, you can support us by **purchasing a PCB** or **donating via PayPal**: [Donate via PayPal](https://paypal.me/sbarab?country.x=CA&locale.x=fr_CA).
+
 💻 **Inquiries for PCBs** can be sent to [SmartBuildsKits@gmail.com](mailto:SmartBuildsKits@gmail.com).
 
 ---
