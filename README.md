@@ -2,7 +2,7 @@
 
 ## Overview
 
-The **SBK_WRISTBLASTER_CORE** is a firmware for a custom-built wrist blaster prop, designed to control LED animations, sound effects, and mechanical features through an Arduino Nano Every.
+The **SBK_WRISTBLASTER_CORE** is a firmware for a custom-built wrist blaster prop, inspired by the Ghostbusters: Frozen Empire movie. It is designed to control LED animations, sound effects, and mechanical features through an Arduino Nano Every.
 
 This project is specifically designed for prop enthusiasts, cosplayers, and makers who want to build a realistic and interactive wrist blaster with dynamic lighting effects and customizable sound.
 
@@ -103,20 +103,18 @@ This means:
 For more details, see the full license text: CC BY-NC 4.0.
 
 ## Author & Collaborator
+### Author: Samuel Barabé
+- 👨‍💻 Father of four, engineer, outdoor enthusiast, and passionate maker.
+- 🛠 Addicted to MCU programming, coding, and 3D design.
+- 👻 Inspired by the rugged, prototype-like aesthetic of Ghostbusters devices.
+- 💡 This project was born from my love for creative electronics, practical prototyping, and immersive props.
+- 🎁 I especially love making props for my children, bringing their favorite fictional worlds to life.
 
-# Author: Samuel Barabé
-
-👨‍💻 Father of four, engineer, outdoor enthusiast, and passionate maker.
-🛠 Addicted to MCU programming, coding, and 3D design.
-👻 Inspired by the rugged, prototype-like aesthetic of Ghostbusters devices.
-💡 This project was born from my love for creative electronics, practical prototyping, and immersive props.
-
-# Collaborator: David Miyakawa
-
-🎨 Talented graphic designer with a deep love for the Ghostbusters lore.
-🎶 Major contributor to sound effects design, prop look development and screen-accurate, device work flow.
-🛠 Skilled in assembling, painting, and finishing props to high-quality standards.
-💡 David's input has been invaluable in achieving realistic soundscapes, design accuracy, and practical prop assembly.
+### Collaborator: David Miyakawa
+- 🎨 Talented graphic designer with a deep love for the Ghostbusters lore.
+- 🎶 Major contributor to sound effects design, prop look development and screen-accurate, device work flow.
+- 🛠 Skilled in assembling, painting, and finishing props to high-quality standards.
+- 💡 David's input has been invaluable in achieving realistic soundscapes, design accuracy, and practical prop assembly.
 
 ## Contact
 
