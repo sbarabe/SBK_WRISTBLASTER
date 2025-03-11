@@ -1,15 +1,18 @@
 /*
  *    SBK_WB_MAX72xx.cpp  
- *    Derived and adapted from :
+ *    Adapted from the original MAX72xx library by Eberhard Fahle:  
+ *    <https://github.com/wayoda/LedControl>
  * 
- *    MAX72xx.cpp - A library for controling Leds with a MAX7219/MAX7221
- *    Copyright (c) 2007 Eberhard Fahle
+ *    Original library:  
+ *    MAX72xx.cpp - A library for controlling LEDs with a MAX7219/MAX7221  
+ *    Copyright (c) 2007 Eberhard Fahle  
  * 
- *    It's only purpose is to drive the bar meter with the MAX72xx
- *    LEDs driver.
- *    
+ *    The purpose of this modified version is solely to drive the bar meter 
+ *    using the MAX72xx LED driver for the SBK Wrist Blaster project.
+ * 
+ *    All credit for the original library goes to Eberhard Fahle.  
+ *    This modified version is provided under the same license as the original.  
  */
-
 
  #include "SBK_WB_MAX72xx.h"
 

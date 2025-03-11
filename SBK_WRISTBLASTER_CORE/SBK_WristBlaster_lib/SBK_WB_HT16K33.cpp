@@ -1,14 +1,18 @@
 /**********************************************************************
- *
- * This is a borrowed and modified library from this GitHub repository :
- * https://github.com/MikeS11/ProtonPack/tree/master/Source/Libraries/ht16k33-arduino-master
  * 
- * It's only purpose is to drive the bar meter with the HT16K33 I2C
- * LEDs driver.
- *
+ * This library is a modified version of the original HT16K33 library 
+ * from this GitHub repository:  
+ * <https://github.com/MikeS11/ProtonPack/tree/master/Source/Libraries/ht16k33-arduino-master>
+ * 
+ * The purpose of this modified library is solely to drive the bar meter 
+ * using the HT16K33 I2C LED driver for the SBK Wrist Blaster project.
+ * 
+ * All credit for the original library goes to Mike S11.  
+ * This modified version is provided under the same license as the original.
+ * 
  **********************************************************************/
 
-#include "SBK_WB_HT16K33.h"
+ #include "SBK_WB_HT16K33.h"
 
 /**
  * Utility function to flip a 16-bit integer. There may be better ways of doing this—let me know!

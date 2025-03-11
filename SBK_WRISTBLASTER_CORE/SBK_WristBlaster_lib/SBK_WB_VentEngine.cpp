@@ -1,19 +1,17 @@
 /*
- *  SBK_WB_VentEngine.cpp is a part of SBK_WRISTBLASTER_CORE (Version 0) code for animations of a Wrist Blaster replica
+ *  This code is part of SBK_WRISTBLASTER_CORE (VERSION 0), a codebase for animations and effects
+ *  of a Wrist Blaster prop inspired by the movie Ghostbusters: Frozen Empire.
  *  Copyright (c) 2025 Samuel Barabé
  *
- *  See this page for reference <https://github.com/sbarabe/SBK_WRISTBLASTER_CORE>.
+ *  For more information, visit the project page: <https://github.com/sbarabe/SBK_WRISTBLASTER_CORE>.
  *
- *  SBK_WRISTBLASTER_CORE is free software: you can redistribute it and/or modify it under the terms
- *  of the GNU General Public License as published by the Free Software Foundation, either version
- *  3 of the License, or (at your option) any later version.
+ *  This work is licensed under the Creative Commons Attribution 4.0 International License (CC BY 4.0).
+ *  You are free to share, copy, and modify this code as long as appropriate credit is given to the author.
+ *  See the full license at: <https://creativecommons.org/licenses/by/4.0/>.
  *
- *  SBK_WRISTBLASTER_CORE is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
- *  without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See
- *  the GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License along with Foobar. If not,
- *  see <https://www.gnu.org/licenses/>
+ *  This code is provided "as-is" without any warranty of any kind, either expressed or implied,
+ *  including but not limited to the warranties of merchantability or fitness for a particular purpose.
+ *  See the full license text for more details.
  */
 
 #include "SBK_WB_VentEngine.h"

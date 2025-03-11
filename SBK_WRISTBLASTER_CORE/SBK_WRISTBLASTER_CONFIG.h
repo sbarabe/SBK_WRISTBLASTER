@@ -1,60 +1,66 @@
 /*
- *  SBK_WRISTBLASTER_CONFIG.h is a part of SBK_WRISTBLASTER_CORE (Version 0) code for sound effects and animations of a Wrist Blaster replica
+ *  This code is part of SBK_WRISTBLASTER_CORE (VERSION 0), a codebase for animations and effects
+ *  for a Wrist Blaster prop inspired by the movie Ghostbusters: Frozen Empire.
  *  Copyright (c) 2025 Samuel Barabé
- *  Special thanks to David Miyakawa for animations, sounds effects and work flow researches and design.
  *
- *  See this page for reference <https://github.com/sbarabe/SBK_WRISTBLASTER_CORE>.
+ *  For more information, visit the project page: <https://github.com/sbarabe/SBK_WRISTBLASTER_CORE>.
  *
- *  SBK_WRISTBLASTER_CORE is free software: you can redistribute it and/or modify it under the terms
- *  of the GNU General Public License as published by the Free Software Foundation, either version
- *  3 of the License, or (at your option) any later version.
+ *  This work is licensed under the Creative Commons Attribution 4.0 International License (CC BY 4.0).
+ *  You are free to share, copy, and modify this code as long as appropriate credit is given to the author.
+ *  See the full license at: <https://creativecommons.org/licenses/by/4.0/>.
  *
- *  SBK_WRISTBLASTER_CORE is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
- *  without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See
- *  the GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License along with Foobar. If not,
- *  see <https://www.gnu.org/licenses/>
- * 
-***********************************************************************************************/
+ *  This code is provided "as-is" without any warranty of any kind, either expressed or implied,
+ *  including but not limited to the warranties of merchantability or fitness for a particular purpose.
+ *  See the full license text for more details.
+ */
 
 /**********************************************************************************************
- *  SEE GENERAL INFO in SWK_WRIST_BLASTER_CORE.ino for more details about how to use this code.
+ *  SEE GENERAL INFO IN SBK_WRISTBLASTER_CORE.ino FOR A FULL OVERVIEW OF HOW TO USE THIS CODE.
  *
- *  THIS IS THE CONFIG FILE, all your setups should be done here and core file leaved as it is !
- * 
-***********************************************************************************************/
-
-/**********************************************************************************************
- *  
- *  THIS CONFIG FILE PARAMTERS ARE SETTED FOR THIS HARDWARE :
- * 
- *      MCU board ->                    Arduino Nano Every :    Nano Every is a 5V board with the same pinout and footprint as a Nano, but with more memories and a faster MCU.
- *                                                              Code is too big for a regular Nano, even for the Uno, it won't compile. 
- * 
- *      Mains PCB ->                    SBK_WRISTBLASTER_II V0
- *      Bar Meter Driver ->             MAX7219 or MAX7221, the later induce less voltage noises/ripples that could reflect on audio.
- *      Bar Meter Driver PCBs ->        SBK_WB_BG_SK_DR V0
- *      Bar Meter holder PCB ->         SBK_WB_BG_28SEG V0
- *      Bar Meter ->                    BL28Z-3005SK common cathode
- *      Fire Button ->                  With a led indicator : led should be less then 20mA with the proper serie resistor do limit forward voltage.
- *                                      SBK_WRISTBLASTER_II V0 pcb provide emplacement for a led resistor. 
- *                                      Per exemple, a yellow 20mA 1.8-2.0V forward voltage led should have a 150 Ohms serie resistor on a 5v driving signal from the MCU pin.
- *      Intensify switch/button ->      Set up for a SWITCH, but can be changed for a PUSH BUTTON setup in the SWITCHES AND BUTTONS section.
- *      Sofware volume potentiometer
- *      Firing strob hue potentiometer
- *      Smoke module control ->         There are fan and pump driver pins, smoke module should be activated by
- *                                      vacuum or with a proper external device (relay/MOSFET) drived by pump signal.
- * 
- *      Sound FX tracks as provided for exemple ->  Code is base on tracks lengths. If you change the tracks, you need to adjust
- *                                                  the tracks lengths in the SOUND FX TRACKS LENGTHS AND LOOPING sections.
- *                                                  You should also make adjustement to the SOME STATE/STAGE PARAMETERS section where
- *                                                  some specifics lengths are defined relative to the sound FX.
- *  
- *   All of this above can be moded in this file without the need of changing the main core code.
- * 
+ *  THIS IS THE CONFIGURATION FILE.  
+ *  - All your hardware and functional settings should be made here.  
+ *  - The main core file (SBK_WRISTBLASTER_CORE.ino) should remain untouched.  
+ *  - This approach keeps your code modular, easier to update, and cleaner to maintain.  
+ *
+ *  MAKE SURE TO SAVE A BACKUP OF YOUR CONFIGURATION FILE IF YOU CUSTOMIZE IT.
+ *
  ***********************************************************************************************/
 
+/**********************************************************************************************
+ *  
+ *  THIS CONFIG FILE PARAMETERS ARE SET FOR THIS HARDWARE:
+ * 
+ *      MCU board -> Arduino Nano Every:    The Nano Every is a 5V board with the same pinout and
+ *                                          footprint as the Nano, but with more memory and a faster MCU.
+ *                                          The code is too large for a regular Nano or even the Uno, 
+ *                                          it will not compile on those boards.
+ * 
+ *      Mains PCB -> SBK_WRISTBLASTER_II V0
+ *      Bar Meter Driver -> MAX7219 or MAX7221: the latter induces less voltage noise/ripples that 
+ *                                              could affect audio quality.
+ *      Bar Meter Driver PCBs -> SBK_WB_BG_SK_DR V0
+ *      Bar Meter Holder PCB -> SBK_WB_BG_28SEG V0
+ *      Bar Meter -> BL28Z-3005SK (common cathode)
+ *      Fire Button -> With a LED indicator: The LED should draw no more than 20mA, with the appropriate
+ *                                           series resistor to limit forward voltage. The SBK_WRISTBLASTER_II V0
+ *                                           PCB provides space for a LED resistor. For example, a yellow 20mA,
+ *                                           1.8-2.0V forward voltage LED should use a 150-ohm series resistor for
+ *                                           a 5V driving signal from the MCU pin.
+ *      Intensify Switch/Button -> Set up for a SWITCH, but can be modified to use a PUSH BUTTON setup in the 
+ *                                 SWITCHES AND BUTTONS section.
+ *      Software Volume Potentiometer -> Enable: If there is no potentiometer attached to this pin, 
+ *                                               the volume may vary unpredictably.
+ *      Firing Strobe Hue Potentiometer -> Enable: If there is no potentiometer attached to this pin,
+ *                                                 the hue may vary because the analog value of a floating pin is undetermined.
+ *      Smoke Module Control -> The fan and pump can be connected to the driver pins. The smoke module should be 
+ *                              activated via a vacuum or with a proper external device (relay/MOSFET) driven
+ *                              by the pump signal.
+ *      Sound FX Tracks (as provided in the example) -> The code is based on track lengths. If you change the tracks, you will need to adjust the track lengths in the SOUND FX TRACK LENGTHS AND LOOPING sections.
+ *                                                      You should also adjust the SOME STATE/STAGE PARAMETERS section where certain lengths are defined relative to the sound FX.
+ *  
+ *   All of the above can be modified in this file without needing to change the main core code.
+ * 
+ ***********************************************************************************************/
 
 #ifndef CONFIG_H
 #define CONFIG_H

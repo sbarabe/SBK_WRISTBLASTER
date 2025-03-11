@@ -2,109 +2,105 @@
  *    SBK_WRISTBLASTER_CORE is a code for lights and sound effects of a Wrist Blaster
  *    replica or other props.
  *    Copyright (c) 2025 Samuel Barabé
- *    Special thanks to David Miyakawa for animations, sounds effects and work flow researches and design.
+ *    Special thanks to David Miyakawa for animations, sound effects, and workflow research and design.
  *
- *    This program is free software: you can redistribute it and/or modify it under the terms
- *    of the GNU General Public License as published by the Free Software Foundation, either
- *    version 3 of the License, or any later version.
+ *    This program is licensed under the Creative Commons Attribution 4.0 International License (CC BY 4.0).
+ *    You may share, copy, and modify the material as long as you give appropriate credit to the author.
+ *    A copy of the full license is available at: https://creativecommons.org/licenses/by/4.0/
  *
  *    This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
  *    without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- *    See the GNU General Public License for more details.
+ *    See the full Creative Commons Attribution 4.0 License for more details.
  *
- *    You should have received a copy of the GNU General Public License along with this program.
- *    If not, see <https://www.gnu.org/licenses/>.
- ***********************************************************************************************/
-
-/**********************************************************************************************
+ * **********************************************************************************************
  *    GENERAL INFO :
  *
  *    SBK_WRISTBLASTER_CORE
  *    <https://github.com/sbarabe/SBK_WRISTBLASTER_CORE>
  *    Version 0
  *
- *    This code was first intended to be use with the SBK Kid Wrist Blaster
- *    <https://github.com/sbarabe/SBK-KidSizeProtonPackArduino> but the code has been extended to
- *    be a configurable code for any wrist plaster.
+ *    A lot of time and resources have been invested in providing this open-source code. Please support
+ *    the author by visiting the GitHub page and donating if you use or enjoy this code, as it helps keep
+ *    the project alive and up-to-date. Feature requests or bug reports can be made by creating a new issue
+ *    on the GitHub page: <https://github.com/sbarabe/SBK_WRISTBLASTER_CORE>.
  *
- *    Lot of time and resources have been invests providing this open-source code, please support
- *    the author if you use or like this code by visiting the GitHub page and donating,
- *    it may help keeping this project alive and up to date. Requests for correcting/adding features
- *    can be made by creating a New Issue on the GitHub page :
- *    <https://github.com/sbarabe/SBK_WRISTBLASTER_CORE>
+ *    Currently, only one type of player module and two bar meter drivers are supported, but others could
+ *    be added (if requested) without modifying the main code.
  *
- *    Now, only one type of player module and two bar meter drivers are supported, but others could
- *    be added (if requested) without modification to the main code.
+ *    Additional animations can also be added upon request, but the main sketch may need to be updated
+ *    to support these new animations.
  *
- *    Other animations could also be added upon request, but main sketch should also be updated to
- *    use these new animations.
- *
- *    Features included:
- *    - DFPlayer mini sound board.
- *    - BAR METER : up to 28 segments (configurable) controlled by MAX72xx or HT16K33 drivers
- *    - Vent, indicators and cylcotron are WS2812 led type: there is one defined chain
- *      for the wrist blaster (blasterLeds).
- *    - WS2812 LEDs positions can be set in their header section.
- *    - LEDs animations are defined in object functions. Class objects and functions are in separated
- *      files to keep the main sketch as short as possible.
- *    - There is an option for volume potentiometer that uses software volume control with the audio player :
- *      If disable in the config file, the volume will be the one declare in the AUDIO PLAYER configuration section.
- *    - There is the following regular switches and buttons :
- *         MAIN BOOT switch :        Power on/off the wrist blaster.
- *         CYCLOTRON switch :        Power on/Off the cyclotron, reuiqred for shooting
- *         ACTIVATE switch :         Toggle between cyclotron normal (capture fire) to full power (burst fire).
- *         INTENSIFY button/switch : Toggle party mode for music
- *         FIRE button :             It does what it says... It also switch previous/next themes in party mode, or enbale/disable smoke in POWER OFF state.
- *         Fire2 button :            Same as fire button but play previous themes in themes playing mode.
- *    - Smoke module : can be enable/disable from POWER OFF state with the Fire Button, always disable when powering on the MCU.
- *    - Firing ROD hue potentiometer : you can change the firing rod hue with a potentiometer, can be enable/disable from the config file.
+ *    Features include:
+ *    - DFPlayer Mini sound board.
+ *    - BAR METER:  28 segments controlled by MAX72xx or HT16K33 drivers.
+ *    - Vent, indicators, and cyclotron are WS2812 LED types: one defined chain for the wrist blaster
+ *      (blasterLeds).
+ *    - WS2812 LEDs index positions can be set in their config file sections.
+ *    - LED animations are defined in object functions. Class objects and functions are in separate
+ *      files to keep the main sketch short and manageable.
+ *    - Optional software volume control for the audio player via a volume potentiometer (configurable).
+ *    - Regular switches and buttons:
+ *         MAIN BOOT switch:              Power on/off the wrist blaster.
+ *         CYCLOTRON switch:              Power on/off the cyclotron, required for shooting.
+ *         ACTIVATE switch (or button):   Toggle between cyclotron normal (capture fire) and full power (burst fire).
+ *         INTENSIFY button/switch:       Toggle party mode for music.
+ *         FIRE button:                   Activates firing and switches between previous/next themes in party mode,
+ *                                        or enables/disables smoke in POWER OFF state.
+ *         FIRE2 button:                  Same as FIRE button but plays previous themes in theme mode.
+ *    - Smoke module: Can be enabled/disabled from POWER OFF state with the Fire Button, always disabled
+ *                    when powering on the MCU.
+ *    - Firing ROD hue potentiometer: Allows adjustment of the firing rod hue via a potentiometer, 
+ *                                    configurable through the config file.
  *
  * *************************************************************************************************
  *    HOW TO USE THE CODE :
  *
- *    This code is based on objects programming, objects are defined in their *.h and *.cpp files located in the SBK_WristBlaster_lib folder. 
- *    Objects instances are created and used in the core file SBK_WRISTBLASTER_CORE.ino. There is also a config file,
- *    SBK_WRISTBLASTER_CONFIG.h, where all basic parameters can be changed according to hardware used. This fully
- *    compartmented code helps keeping code cleaner and easier to update/maintain. This also prevent having
- *    an endless code hard to follow.
+ *    This code uses object-oriented programming. Objects are defined in *.h and *.cpp files located in the
+ *    SBK_WristBlaster_lib folder. Object instances are created and used in the core file SBK_WRISTBLASTER_CORE.ino.
+ *    There is also a config file, SBK_WRISTBLASTER_CONFIG.h, where all basic parameters can be changed
+ *    according to the hardware used. This modular approach keeps the code cleaner and easier to update/maintain,
+ *    and prevents the code from becoming too complex and hard to follow.
  *
- *    The sketch folder should be named 'SBK_WRISTBLASTER_CONFIG', same as the SBK_WRISTBLASTER_CONFIG.ino file. 
- *    It should contain both SBK_WRISTBLASTER_CONFIG.ino and SBK_WRISTBLASTER_CONFIG.h files.
- *    When you opne the .ino file in the IDE, you will see both CORE and CONFIG files in the IDE : 
- *    the config file should be the one you make some setting,
- *    the core file should be left as it is.
+ *    The sketch folder should be named 'SBK_WRISTBLASTER_CONFIG', same as the SBK_WRISTBLASTER_CONFIG.ino file.
+ *    It should contain both SBK_WRISTBLASTER_CONFIG.ino and SBK_WRISTBLASTER_CONFIG.h files. When you open
+ *    the .ino file in the IDE, both the CORE and CONFIG files will be available in the Arduino IDE:
+ *    - The config file is where you make your settings.
+ *    - The core file should be left unchanged.
  *
- *    In your Arduino IDE libraries folder, you should place SBK_WristBlaster_lib folder : it contains all the specific libraries needed
- *    except the Adafruit_NeoPixel.h and the DFPlayerMine_Fast.h.
- *    They should be find with the IDE libraries search tool.
+ *    In your Arduino IDE libraries folder, you should place the SBK_WristBlaster_lib folder, which contains
+ *    all the specific libraries required, except for the following libraries. These
+ *    should be found using the IDE's libraries search tool :
+ *    - For WS2812 LEDs: Adafruit_NeoPixel.h (https://github.com/adafruit/Adafruit_NeoPixel)
+ *    - For DFPlayer Mini: DFPlayerMini_Fast.h (https://github.com/PowerBroker2/DFPlayerMini_Fast)
  *    
- *    The SBK_WRISTBLASTER_CONFIG.h file contains all the definitions and options : pins, player module, LEDs index,
- *    audio tracks, etc. This is the file you want to customize to adjust your pins setting, LEDs chain and index,
- *    audio tracks info and other options. If you like the animations and the wrist blaster workflow, you should not have
- *    to change anything else then the config file.
+ *    The SBK_WRISTBLASTER_CONFIG.h file contains all the definitions and options such as pins, player module,
+ *    LEDs index, audio tracks, etc. This is the file you need to customize to adjust your hardware settings,
+ *    LEDs strip index, and audio tracks information. If you like the animations and the wrist blaster workflow,
+ *    you should not need to change anything else apart from the config file.
  *
- *    Be careful to adjust animations times/speed regarding your audio tracks/pact states durations. They are all
- *    gathered in the getLEDsSchemeForThisState() function after the Main Loop in the core file. CAUTION, playing
- *    with times and speeds can really mess around the animations flow, it is highly suggested taking notes of the
- *    original values and changing a few of them at the time and see the effects.
- *
- *    Other libraries are required to be installed in your IDE too, according to your devices
- *    and modules :
- *
- *    - For WS2812 LEDs :      Adafruit_NeoPixel.h (https://github.com/adafruit/Adafruit_NeoPixel)
- *    - For DFPlayer Mini :    DFPlayerMine_Fast.h (https://github.com/PowerBroker2/DFPlayerMini_Fast)
+ *    This code does not check the DFPlayer BUSY pin to determine if a sound effect has finished playing; instead, it relies
+ *    on the track lengths defined in the config file. These lengths should match the actual duration of your audio tracks.
+ *    If you do not use the example tracks provided with this project, you will need to verify and adjust all track lengths
+ *    in the config file accordingly.  
+ *    Although this approach may seem more complicated, it allows the code to run even if the DFPlayer is faulty or malfunctioning
+ *    and enables seamless transitions between sound effects.
  *
  *    *** ADVANCED USERS ONLY ***
- *    If you want to change animations styles and colors, you need to go in the engines files and modified the
- *    associated functions or create new ones. Then you will have to implement them in the getLEDsSchemeForThisState()
- *    function in the core file.
+ *    To change animation styles and colors, modify the functions in the engine files or create new ones.
+ *    You will also need to implement them in the getLEDsSchemeForThisState() function in the core file.
+ * 
+ *    Be careful when adjusting animation timings/speeds, as they correspond to the audio track/pact states
+ *    durations. These values are gathered in the getLEDsSchemeForThisState() function after the Main Loop in the
+ *    core file. **Note**: Changing times and speeds can significantly alter the animations flow, so it's highly
+ *    recommended to note the original values and make small changes while observing the effects.
  *
- *    If you want to change the wrist blaster state switch/cases workflow, you will have to modify wrist blaster states list and audio
- *    tracks list/length/looping in the CONFIG file, and the Main Loop pact states switch/cases contents.
+ *    To modify the wrist blaster state switch/case workflow, update the wrist blaster states list and audio
+ *    track list/length/looping in the CONFIG file, and adjust the Main Loop pact states switch/case contents.
  *
- *    Sketch mechanic works with different wrist blaster states and transitions in the Wrist Blaster state switches/cases defined
- *    in Main Loop. Each wrist blaster state has is initialization stage (stageFlag 0) and looping stages (stageFlag 1, 2, ...). The
- *    looping stages includes exit(s) to other states : switches actions, buttons actions and audio track ending.
+ *    The sketch mechanics work with different wrist blaster states and transitions, defined in the Wrist Blaster
+ *    state switches/cases in the Main Loop. Each wrist blaster state has its initialization stage (stageFlag 0) and
+ *    looping stages (stageFlag 1, 2, ...), with exit conditions to other states based on switch/button actions
+ *    and audio track ending.
  *
  ***********************************************************************************************/
 
