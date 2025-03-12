@@ -1,4 +1,4 @@
-# SBK_WRISTBLASTER 🚀
+# SBK_WRISTBLASTER
 
    <img src="images/screenshot1.png" alt="Screenshot of PCB design" width="400"/> <img src="images/screenshot2.png" alt="Screenshot of PCB design" width="400"/>
 
@@ -111,8 +111,12 @@ Additional tracks can be placed in a named "/01" folder of the SD card; these tr
 - **Fire Type:** Flip Activate Switch to select between Capture or Burst Fire.
 - **Fire :** Press the trigger button to initiate the firing sequence with synchronized LEDs and sound effects.
 - **Overheat:** Blaster will overheat, vent and reboot after a few Burst shots or a long Capture shot. Blaster is cooling down while in idle...
-- **Party Mode:** Engage in playback mode.
-- **Smoke:** While in Power Off state, you can enable/disable the smoke device by pressing the Fire Button for 3 seconds. You will see the Top White indicator switching form green/red to show smoke device status : green = enabled, red = disabled.
+- **Party Mode:** Engage in playback mode. Use Fire Button to switch track :
+   -  **Short press** → Next track
+   -  **Long press** → Previous track
+- **Smoke:** While in the **Power Off state**, press and hold the Fire Button for **3 seconds** to enable or disable the smoke device. The **Top White Indicator** will change color to show the status:
+   - **Green** → Smoke device enabled
+   - **Red** → Smoke device disabled
 
 ## Schematics
 
