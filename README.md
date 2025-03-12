@@ -25,19 +25,39 @@ This project is intended for prop enthusiasts, cosplayers, and makers who want t
 - 🎮 **Standalone Operation:** The code can run without a functional player, making debugging easier.
 - 📊 **Serial Debugging:** Real-time debugging through the Arduino IDE.
 
+## 3D Model Design Features and Choices  
+
+While aiming for screen accuracy in the *Ghostbusters* Wrist Blaster design, some modifications have been made for usability and practicality. We envision this version as an evolution of the first prototype seen in *Frozen Empire*:  
+
+- The **Activate Push Button** has been replaced with a switch. The original push button's position was difficult to reach when the blaster was strapped to the right arm. You can still use the push button if desired by setting **INTENSIFY_IS_A_SWITCH** to **false** in the config file.  
+- The straps do not pass through the main body but instead go between the main body and the arm brace plate. This design provides more internal space for electronics and the speaker.  
+- The arm brace plate is curved to accommodate a 3/8" copper pipe as a handle, which can be secured with zip ties through the plate holes.  
+- Indicator plastic lenses have a modern style and are easily available from suppliers like Digi-Key or Mouser.  
+- The fire button features a yellow light indicator.  
+- **Optional features:**  
+  - **Volume control:** Adjustable via the front knob and potentiometer.  
+  - **Fire strobe hue control:** Adjustable using the Clippard valve knob and potentiometer.  
+  - **Smoke effect:** Includes a fan inside the heatsink, a pump inside the Clippard valve body, and a vacuum-activated vape system in the Cyclotron tube.  
+
 ## Hardware Requirements
 
 - **Arduino Nano Every** (not to be confused with the regular Nano)
 - **DFPlayer Mini DFR0299 (genuine)** and an SD card
 - **A fully populated custom SBK Wristblaster PCB** 
-- **2x B10K Potentiometers** (for analog inputs)
-- **4x Mini Blue Toggle Switches**
+- **4x Mini Blue Toggle Switches** (or replace one switch with a push button for the "Activate")
 - **5x WS2812 Single LED Pixels**
 - **2x WS2812 7-LED Jewels**
 - **1x 16mm Momentary Push Button with Yellow LED Indicator** (R16-503)
 - **1x 28-Segment Bar Meter** (BL28-3000-Sx04Y)
+- **1x 40mm 5W 4Ohms speaker**
 - **Proper LED Driver PCBs for the Bar Meter** (using HT16K33 or MAX72xx drivers). We recommend using the **SBK_BG_xx_DRIVER** and **SBK_BG_28SEG** PCBs with MAX7221 LED drivers.
 - **6-12V Power Pack:** We suggest using a 6V NiMh flat pack that fits the battery holder 3D model in this project, but you may choose your own power source.
+- Options :
+   - **1x B10K Potentiometers** for volume control 
+   - **1x B10K Potentiometers** for fire strobe hue control
+   - **1x 3006 or 3007 5VDC fan** for smoke effect
+   - **1x 5VDC mini pump** for smoke effect
+   - **1x small vape pen, vacuum activated** for smoke effect
 
 ### SBK PCBs
 - Main PCB :                                       **SBK_WRISTBLASTER_PCB_II V0**
