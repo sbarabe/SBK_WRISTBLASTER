@@ -124,7 +124,7 @@ The provided schematics show the wiring using the SBK custom PCBs, making the as
 
 ## Demo Video
 
-
+🎥 [Watch the demo video](https://drive.google.com/file/d/1tK8gQD61fCHybJHeq_SOud1DNxneKH4g/view?usp=sharing)
 
 ## Contributing
 
