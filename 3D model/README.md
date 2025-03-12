@@ -45,7 +45,7 @@ For more details, see the full license text: [CC BY 4.0](http://creativecommons.
 
 💸 To keep this project and keep development going, you can **acquire a PCB** or **donate via PayPal**: [Donate via PayPal](https://paypal.me/sbarab?country.x=CA&locale.x=fr_CA).
 
-💻 **Inquiries for PCBs** can be sent to [SmartBuildsKits@gmail.com](mailto:SmartBuildsKits@gmail.com).
+💻 **Inquiries** can be sent to [SmartBuildsKits@gmail.com](mailto:SmartBuildsKits@gmail.com).
 
 ---
 
