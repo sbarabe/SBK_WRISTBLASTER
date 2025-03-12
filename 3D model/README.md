@@ -4,8 +4,6 @@
 
 The 3D model provided is part of this project: [SBK_WRISTBLASTER](https://github.com/SmartBuildsKits/SBK_WRISTBLASTER).
 
-The SBK PCBs are initially designed to fit this model but can also be used in other models.
-
 The SBK PCBs are specifically designed to fit this model but can also be used in other designs.
 
 I keep a small stock of non-printed parts for personal uses. If you're having trouble sourcing a specific component, feel free to reach out—I might be able to help. **Contact me via email for inquiries**.
