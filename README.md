@@ -52,26 +52,26 @@ This project is intended for prop enthusiasts, cosplayers, and makers who want t
 
 1. **Download the files:**
 
-- Go to the GitHub repository: [SBK_WRISTBLASTER_CORE](https://github.com/SmartBuildsKits/SBK_WRISTBLASTER_CORE)
+- Go to the GitHub repository: [SBK_WRISTBLASTER](https://github.com/SmartBuildsKits/SBK_WRISTBLASTER)
 - Click on the **Code** button and select **Download ZIP**.
 - Extract the ZIP file to your computer.
 
 2. **Move the files to the correct folders:**
 
-- Place **SBK_WRISTBLASTER_CORE.ino** and **SBK_WRISTBLASTER_CONFIG.h** files in a folder named **"SBK_WRISTBLASTER_CORE"** inside your Arduino IDE **Sketches** folder.
-- Place the **SBK_WristBlaster_lib** folder inside your Arduino IDE **Sketches\libraries** folder.
+- Copy the **SBK_WRISTBLASTER_CORE** folder inside your Arduino IDE **Sketches** folder.
+- In that folder, you will find another folder named **SBK_WristBlaster_lib**, move it inside your Arduino IDE **Sketches\libraries** folder.
 
 3. **Install required libraries:**
 
-- Open Arduino IDE and use the **Library Manager** to install the following libraries along with their dependencies:
+- Open Arduino IDE and use the **Library Manager** to install the following libraries along with all their dependencies:
     - **Adafruit_NeoPixel.h**
     - **DFPlayerMini_Fast.h**
 
 4. **Upload the code:**
 
-- Open **SBK_WRISTBLASTER_CORE.ino** in Arduino IDE.
-- You'll see two tabs: the **configuration file** and the **main code file**.
-- **Do not modify the main code file** (**SBK_WRISTBLASTER_CORE.ino**). It is designed to remain untouched.
+- From the Arduino IDE Sketches folder, open **SBK_WRISTBLASTER_CORE.ino** in Arduino IDE.
+- You'll see two tabs: the **CONFIG** file and the **CORE** file.
+- **Do not modify the main code file** (**SBK_WRISTBLASTER_CORE.ino**) : it is designed to remain untouched.
 - Review and modify your settings in **SBK_WRISTBLASTER_CONFIG.h** according to your build.
 - Connect your Arduino Nano Every to your computer using a suitable USB cable.
 - Select the correct **COM port** and set **Arduino Nano Every** as your board.
@@ -88,9 +88,10 @@ Sound effects examples are provided for this project. They fit the tracks number
 - **Power On:** Flip the main power switch.
 - **Cyclotron On:** Flip the cyclotron switch, you can fire when switch is on.
 - **Fire Type:** Flip Activate Switch to select between Capture or Burst Fire.
-- **Fire :** Press the trigger button to initiate the firing sequence with synchronized LED and sound effects.
-- **Overheat:** Blaster will overheat, vent and reboot after a few Burst shots or a Long Capture shot.
+- **Fire :** Press the trigger button to initiate the firing sequence with synchronized LEDs and sound effects.
+- **Overheat:** Blaster will overheat, vent and reboot after a few Burst shots or a long Capture shot. Blaster is cooling down while in idle...
 - **Party Mode:** Engage in playback mode.
+- **Smoke:** While in Power Off state, you can enable/disable the smoke device by pressing the Fire Button for 3 seconds. You will see the Top White indicator switching form green/red to show smoke device status : green = enabled, red = disabled.
 
 ## Schematics
 
