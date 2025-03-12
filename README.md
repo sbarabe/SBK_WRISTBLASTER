@@ -20,7 +20,7 @@ This project is intended for prop enthusiasts, cosplayers, and makers who want t
 - 💡 **LED Animations:** Custom LED bar meters, cycling lights, and pulsating effects.
 - 🔥 **Heat Level Simulation:** LED bar that rises with the "heat level" and gradually cools down when not in use.
 - 🎛 **Potentiometer Control:** Adjust volume and firing strobe hue.
-- 📟 **MAX7219 or HT16K33 Support:** Custom bar meter display using MAX7219 or HT16K33 LED drivers.
+- 📟 **MAX7219 or HT16K33 Support:** bar meter driver using MAX7219 or HT16K33 LEDs driver.
 - 💨 **Vacuum Pump and Fan Outputs:** Dedicated 5V outputs (0.5A max each) for controlling smoke effects, fully integrated on the PCB.
 - 🎮 **Standalone Operation:** The code can run without a functional player, making debugging easier.
 - 📊 **Serial Debugging:** Real-time debugging through the Arduino IDE.
