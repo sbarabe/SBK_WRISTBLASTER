@@ -40,7 +40,7 @@ While aiming for screen accuracy in the *Ghostbusters* Wrist Blaster design, som
   - **Smoke effect:** Includes a fan inside the heatsink, a pump inside the Clippard valve body, and a vacuum-activated vape system in the Cyclotron tube.  
 
 ## Hardware Requirements
-
+See the **Electronic Parts List** for full details, here are the main components :
 - **Arduino Nano Every** (not to be confused with the regular Nano)
 - **DFPlayer Mini DFR0299 (genuine)** and an SD card
 - **A fully populated custom SBK Wristblaster PCB** 
