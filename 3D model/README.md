@@ -6,6 +6,8 @@ The 3D model provided is part of this project: [SBK_WRISTBLASTER](https://github
 
 The SBK PCBs are specifically designed to fit this model but can also be used in other designs.
 
+See the 3D model printing and other parts lists for details.
+
 I keep a small stock of non-printed parts for personal uses. If you're having trouble sourcing a specific component, feel free to reach out—I might be able to help. **Contact me via email for inquiries**.
 
 <img src="images/screenshot1.png" alt="Screenshot of PCB design" width="400"/> <img src="images/screenshot2.png" alt="Screenshot of PCB design" width="400"/>
