@@ -49,7 +49,7 @@ See the **Electronic Parts List** for full details, here are the main components
 - **2x WS2812 7-LED Jewels**
 - **1x 16mm Momentary Push Button with Yellow LED Indicator** (R16-503)
 - **1x 28-Segment Bar Meter** (BL28-3000-Sx04Y)
-- **1x 40mm 5W 4Ohms speaker**
+- **1x 2in 5W 4Ohms speaker**
 - **Proper LED Driver PCBs for the Bar Meter** (using HT16K33 or MAX72xx drivers). We recommend using the **SBK_BG_xx_DRIVER** and **SBK_BG_28SEG** PCBs with MAX7221 LED drivers.
 - **6-12V Power Pack:** We suggest using a 6V NiMh flat pack that fits the battery holder 3D model in this project, but you may choose your own power source.
 - Options :
