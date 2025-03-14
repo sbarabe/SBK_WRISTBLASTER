@@ -27,7 +27,7 @@ This project is intended for prop enthusiasts, cosplayers, and makers who want t
 
 ## 3D Model Design Features and Choices  
 
-While aiming for screen accuracy in the *Ghostbusters* Wrist Blaster design, some modifications have been made for usability and practicality. We envision this version as an evolution of the first prototype seen in *Frozen Empire*:  
+While aiming for screen accuracy in the *Ghostbusters* inspired Wrist Blaster design,some modifications have been made for usability and practicality. We envision this version as an evolution of the first prototype seen in *Frozen Empire*:  
 
 - The **Activate Push Button** has been replaced with a switch. The original push button's position was difficult to reach when the blaster was strapped to the right arm. You can still use the push button if desired by setting **INTENSIFY_IS_A_SWITCH** to **false** in the config file.  
 - The straps do not pass through the main body but instead go between the main body and the arm brace plate. This design provides more internal space for electronics and the speaker.  
