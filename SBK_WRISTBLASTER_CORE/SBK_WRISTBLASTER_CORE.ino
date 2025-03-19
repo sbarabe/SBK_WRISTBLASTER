@@ -667,7 +667,7 @@ void loop()
       heatLevelCooling();
 
       // Wrist blaster state exits by priority :
-      if (checkIfSwitchExit(SWmain.isOFF(), STATE_POWER_OFF_TO_ON)) // Check if Main Switch is OFF, goes into main shutting state STATE_POWER_ON_TO_OFF
+      if (checkIfSwitchExit(SWmain.isOFF(), STATE_POWER_ON_TO_OFF)) // Check if Main Switch is OFF, goes into main shutting state STATE_POWER_ON_TO_OFF
         break;
 
       if (checkIfSwitchExit(SWcyclotron.isOFF(), STATE_CYCLOTRON_ON_TO_OFF)) // Check if Cyclotron Switch is OFF, goes into cyclotron shutting state STATE_CYCLOTRON_ON_TO_OFF
@@ -714,7 +714,7 @@ void loop()
       heatLevelCooling();
 
       // Wrist blaster state exits by priority :
-      if (checkIfSwitchExit(SWmain.isOFF(), STATE_POWER_OFF_TO_ON)) // Check if Main Switch is OFF, goes into main shutting state STATE_POWER_ON_TO_OFF
+      if (checkIfSwitchExit(SWmain.isOFF(), STATE_POWER_ON_TO_OFF)) // Check if Main Switch is OFF, goes into main shutting state STATE_POWER_ON_TO_OFF
         break;
 
       if (checkIfSwitchExit(SWcyclotron.isON(), STATE_CYCLOTRON_OFF_TO_ON)) // Check if Cyclotron Switch is ON, goes into cyclotron booting state STATE_CYCLOTRON_OFF_TO_ON
@@ -768,7 +768,7 @@ void loop()
       if (checkIfSwitchExit(getPartyModeState(), STATE_PARTY_MODE_IN)) // Check if the Intensify Switch is ON, goes into STATE_PARTY_MODE_IN
         break;
 
-      if (checkIfSwitchExit(SWmain.isOFF(), STATE_POWER_OFF_TO_ON)) // Check if Main Switch is OFF, goes into main shutting state STATE_POWER_ON_TO_OFF
+      if (checkIfSwitchExit(SWmain.isOFF(), STATE_POWER_ON_TO_OFF)) // Check if Main Switch is OFF, goes into main shutting state STATE_POWER_ON_TO_OFF
         break;
 
       if (checkIfSwitchExit(SWcyclotron.isOFF(), STATE_CYCLOTRON_ON_TO_OFF)) // Check if Cyclotron Switch is OFF, goes into cyclotron shutting state STATE_CYCLOTRON_ON_TO_OF
@@ -821,7 +821,7 @@ void loop()
       heatLevelCooling();
 
       // Wrist blaster state exits by priority :
-      if (checkIfSwitchExit(SWmain.isOFF(), STATE_POWER_OFF_TO_ON)) // Check if Main Switch is OFF, goes into main shutting state STATE_POWER_ON_TO_OFF
+      if (checkIfSwitchExit(SWmain.isOFF(), STATE_POWER_ON_TO_OFF)) // Check if Main Switch is OFF, goes into main shutting state STATE_POWER_ON_TO_OFF
         break;
 
       if (checkIfSwitchExit(SWcyclotron.isOFF(), STATE_CYCLOTRON_ON_TO_OFF)) // Check if Cyclotron Switch is OFF, goes into cyclotron shutting state STATE_CYCLOTRON_ON_TO_OFF
@@ -869,7 +869,7 @@ void loop()
       heatLevelCooling();
 
       // Wrist blaster state exits by priority :
-      if (checkIfSwitchExit(SWmain.isOFF(), STATE_POWER_OFF_TO_ON)) // Check if Main Switch is OFF, goes into main shutting state STATE_POWER_ON_TO_OFF
+      if (checkIfSwitchExit(SWmain.isOFF(), STATE_POWER_ON_TO_OFF)) // Check if Main Switch is OFF, goes into main shutting state STATE_POWER_ON_TO_OFF
         break;
 
       if (checkIfSwitchExit(SWcyclotron.isOFF(), STATE_CYCLOTRON_ON_TO_OFF)) // Check if Cyclotron Switch is OFF, goes into cyclotron shutting state STATE_CYCLOTRON_ON_TO_OFF
