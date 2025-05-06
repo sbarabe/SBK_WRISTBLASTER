@@ -259,15 +259,15 @@ const uint8_t TOTAL_LEDS_NUMBER = 19; // vent + indicators + firing jewel + cycl
 // The following sections contain indexes for the leds on the chain, starting from 0.
 // You will need to update these indexes to match where things are in the chain
 // Cyclotron, vent, indicators and firing tip index in the WS2812 wrist blaster chain :
-const uint8_t LED_INDEX_CYC_START = 0;
-const uint8_t LED_INDEX_CYC_END = 6;
-const uint8_t LED_INDEX_SLOWBLOW = 7;      // Indicator
-const uint8_t LED_INDEX_TOP_YELLOW = 8;    // Indicator
-const uint8_t LED_INDEX_TOP_WHITE = 9;     // Indicator
-const uint8_t LED_INDEX_VENT = 10;
-const uint8_t LED_INDEX_FRONT_ORANGE = 11; // Indicator
-const uint8_t LED_INDEX_TIP_1ST = 12;
-const uint8_t LED_INDEX_TIP_LAST = 18;
+const uint8_t LED_INDEX_SLOWBLOW = 0;   // Indicator
+const uint8_t LED_INDEX_TOP_YELLOW = 1; // Indicator
+const uint8_t LED_INDEX_TOP_WHITE = 2;  // Indicator
+const uint8_t LED_INDEX_VENT = 3;
+const uint8_t LED_INDEX_FRONT_ORANGE = 4; // Indicator
+const uint8_t LED_INDEX_TIP_1ST = 5;
+const uint8_t LED_INDEX_TIP_LAST = 11;
+const uint8_t LED_INDEX_CYC_START = 12;
+const uint8_t LED_INDEX_CYC_END = 18;
 /***********************************************/
 /*                  VENT LED                   */
 /***********************************************/
@@ -280,7 +280,7 @@ const bool CYCLOTRON_DIRECTION = FORWARD; // animation direction (FORWARD/REVERS
 // Cyclotron ring and center positions pixels for the index in the WS2812 wrist blaster chain
 // Cyclotron jewel has 7 pixels
 const uint8_t CYC_NUMLEDS = 7;
-// Identify specific pixel order in the led index
+// Identify specific pixel order on the jewel starting from 0
 const uint8_t CYC_RING_1ST = 0;
 const uint8_t CYC_RING_LAST = 5;
 const uint8_t CYC_CENTER = 6;
