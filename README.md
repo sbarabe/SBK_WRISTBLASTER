@@ -1,8 +1,15 @@
 # SBK_WRISTBLASTER
+Wrist Blaster rendering :
 
    <img src="images/screenshot1.png" alt="Screenshot of Wrist Blaster" width="400"/> <img src="images/screenshot2.png" alt="Screenshot of Wrist Blaster" width="400"/>
 
-   <img src="Arm braced 8 pixels PowerCell Battery pack holder.jpg" alt="Screenshot of 8 pixels PowerCell" width="275"/> <img src="Arm braced 24seg BarMeter PowerCell Battery pack holder (1).jpg" alt="Screenshot of 24seg BarMeter PowerCell" width="125"/>
+
+Arm braced Power Cell battery pack holder for Wrist Blaster, 8 pixels WS2812 stick version, and 24 segements Bar Meter version :
+
+   <img src="images/Arm braced 8 pixels PowerCell Battery pack holder.jpg" alt="Screenshot of 8 pixels PowerCell" width="275"/>    <img src="images/Arm braced 24seg BarMeter PowerCell Battery pack holder (1).jpg" alt="Screenshot of 24seg BarMeter PowerCell" width="138"/>
+
+
+
 ## Overview
 
 This project is for a custom-built wrist blaster prop, inspired by the *Ghostbusters: Frozen Empire* movie.
