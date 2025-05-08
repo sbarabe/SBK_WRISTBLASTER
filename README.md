@@ -38,7 +38,7 @@ While aiming for screen accuracy in the *Ghostbusters* inspired Wrist Blaster de
 - **Optional features:**  
   - **Volume control:** Adjustable via the front knob and potentiometer.  
   - **Fire strobe hue control:** Adjustable using the Clippard valve knob and potentiometer.  
-  - **Smoke effect:** Includes a fan inside the heatsink, a pump inside the Clippard valve body, and a vacuum-activated vape system in the Cyclotron tube.  
+  - **Smoke effect:** Required deives are a fan inside the heatsink, a pump inside the Clippard valve body, and a vacuum-activated vape system in the Cyclotron tube. ***Smoke effects hasen't been tested yet to full extension. Board outputs to drive fan and pump are operational, but the others smoke effect devices (fan, pump and vape) haven't.***
 
 ## Hardware Requirements
 See the ***Electronic Parts List*** in the ***Ressources*** folder for full details, here are the main components :
