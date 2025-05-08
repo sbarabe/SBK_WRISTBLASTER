@@ -40,7 +40,7 @@ While aiming for screen accuracy in the *Ghostbusters* inspired Wrist Blaster de
   - **Smoke effect:** Includes a fan inside the heatsink, a pump inside the Clippard valve body, and a vacuum-activated vape system in the Cyclotron tube.  
 
 ## Hardware Requirements
-See the **Electronic Parts List** for full details, here are the main components :
+See the ***Electronic Parts List*** in the ***Ressources*** folder for full details, here are the main components :
 - **Arduino Nano Every** (not to be confused with the regular Nano)
 - **DFPlayer Mini DFR0299 (genuine)** and an SD card
 - **A fully populated custom SBK Wristblaster PCB** 
@@ -65,8 +65,9 @@ See the **Electronic Parts List** for full details, here are the main components
 - Driver PCB for **common anode** bar meter :      **SBK_WB_BG_SA_DR V0**
 - Bar meter holder PCB for BL28-3005Sx bar meter : **SBK_WB_BG_28SEG V0**
   
-  PCBs are produce in small batches and on demand, with only a small amount kept in stock.
-  💻 **Inquiries for PCBs** can be sent to [SmartBuildsKits@gmail.com](mailto:SmartBuildsKits@gmail.com).
+  PCBs are produced in small batches and on demand, with only a small amount kept in stock.
+  
+  💻 ***Inquiries for PCBs*** can be sent to [SmartBuildsKits@gmail.com](mailto:SmartBuildsKits@gmail.com).
 
 ## Firmware Installation
 
@@ -176,7 +177,8 @@ For more details, see the full license text: CC BY-NC 4.0.
 ## Support
 
 💸 To keep this project and keep development going, you can **acquire a PCB** or **donate via PayPal**: [Donate via PayPal](https://paypal.me/sbarab?country.x=CA&locale.x=fr_CA).
-💻 **Inquiries for PCBs** can be sent to [SmartBuildsKits@gmail.com](mailto:SmartBuildsKits@gmail.com).
+
+💻 ***Inquiries for PCBs*** can be sent to [SmartBuildsKits@gmail.com](mailto:SmartBuildsKits@gmail.com).
 
 ---
 
