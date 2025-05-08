@@ -2,7 +2,7 @@
 
    <img src="images/screenshot1.png" alt="Screenshot of Wrist Blaster" width="400"/> <img src="images/screenshot2.png" alt="Screenshot of Wrist Blaster" width="400"/>
 
-   <img src="images/Arm braced PowerCell Battery pack holder (1).jpg" alt="Screenshot of PowerCell" width="275"/> 
+   <img src="Arm braced 8 pixels PowerCell Battery pack holder.jpg" alt="Screenshot of 8 pixels PowerCell" width="275"/> <img src="Arm braced 24seg BarMeter PowerCell Battery pack holder (1).jpg" alt="Screenshot of 24seg BarMeter PowerCell" width="125"/>
 ## Overview
 
 This project is for a custom-built wrist blaster prop, inspired by the *Ghostbusters: Frozen Empire* movie.
