@@ -33,12 +33,12 @@ This project is intended for prop enthusiasts, cosplayers, and makers who want t
 - 🎮 **Standalone Operation:** The code can run without a functional player, making debugging easier.
 - 📊 **Serial Debugging:** Real-time debugging through the Arduino IDE.
 
-**Note about Smoke Effect:**
-We have not yet found an ideal combination of pump, fan, and smoke device that is small enough to fit inside the blaster while providing a satisfactory smoke effect. We're actively working on this and therefore do not currently recommend any specific device combination.
+   **Note about Smoke Effect:**
+   We have not yet found an ideal combination of pump, fan, and smoke device that is small enough to fit inside the blaster while providing a    satisfactory smoke effect. We're actively working on this and therefore do not currently recommend any specific device combination.
 
-However, the board includes two outputs dedicated to smoke effect control. These outputs are driven simultaneously and can be used to power a pump and fan directly (as long as the devices are within the board’s rated voltage and current limits). Alternatively, you can use these outputs to drive a relay or other interface to control your smoke devices.
+   However, the board includes two outputs dedicated to smoke effect control. These outputs are driven simultaneously and can be used to power a pump and fan directly (as long as the devices are within the board’s rated voltage and current limits). Alternatively, you can use these outputs to drive a relay or other interface to control your smoke devices.
 
-If you discover a combination that delivers a good smoke effect in this setup, we’d love to hear from you!
+   If you discover a combination that delivers a good smoke effect in this setup, we’d love to hear from you!
 
 ## 3D Model Design Features and Choices  
 
@@ -52,8 +52,10 @@ While aiming for screen accuracy in the *Ghostbusters* inspired Wrist Blaster de
 - **Optional features:**  
   - **Volume control:** Adjustable via the front knob and potentiometer.  
   - **Fire strobe hue control:** Adjustable using the Clippard valve knob and potentiometer.  
-  - **Smoke effect:** Required deives are a fan inside the heatsink, a pump inside the Clippard valve body, and a vacuum-activated vape system in the Cyclotron tube. ***Smoke effects hasen't been tested yet to full extension. Board outputs to drive fan and pump are operational, but the others smoke effect devices (fan, pump and vape) haven't.***
+  - **Smoke effect:** The intended setup includes a fan inside the heatsink, a pump inside the Clippard valve body, and a vacuum-activated vape system inside the Cyclotron tube. The board provides two operational outputs to control the fan and pump simultaneously. These can be used directly (within rated voltage and current limits) or through a relay. ***That said, we haven't find yet a good combinaison of smoke devices (fan, pump, and vape system) smal enough to fit inside the blaster and providing good smoke effects.***
 
+ 
+    
 ## Hardware Requirements
 See the ***Electronic Parts List*** in the ***Ressources*** folder for full details, here are the main components :
 - **Arduino Nano Every** (not to be confused with the regular Nano)
