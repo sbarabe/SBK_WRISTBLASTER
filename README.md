@@ -33,6 +33,13 @@ This project is intended for prop enthusiasts, cosplayers, and makers who want t
 - 🎮 **Standalone Operation:** The code can run without a functional player, making debugging easier.
 - 📊 **Serial Debugging:** Real-time debugging through the Arduino IDE.
 
+**Note about Smoke Effect:**
+We have not yet found an ideal combination of pump, fan, and smoke device that is small enough to fit inside the blaster while providing a satisfactory smoke effect. We're actively working on this and therefore do not currently recommend any specific device combination.
+
+However, the board includes two outputs dedicated to smoke effect control. These outputs are driven simultaneously and can be used to power a pump and fan directly (as long as the devices are within the board’s rated voltage and current limits). Alternatively, you can use these outputs to drive a relay or other interface to control your smoke devices.
+
+If you discover a combination that delivers a good smoke effect in this setup, we’d love to hear from you!
+
 ## 3D Model Design Features and Choices  
 
 While aiming for screen accuracy in the *Ghostbusters* inspired Wrist Blaster design,some modifications have been made for usability and practicality. We envision this version as an evolution of the first prototype seen in *Frozen Empire*:  
