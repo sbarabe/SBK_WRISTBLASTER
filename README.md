@@ -68,7 +68,7 @@ See the ***Electronic Parts List*** in the ***Ressources*** folder for full deta
 - **1x 16mm Momentary Push Button with Yellow LED Indicator** (R16-503)
 - **1x 28-Segment Bar Meter** (BL28-3000-Sx04Y)
 - **1x 2in 5W 4Ohms speaker**
-- **Proper LED Driver PCBs for the Bar Meter** (using HT16K33 or MAX72xx drivers). We recommend using the **SBK_BG_xx_DRIVER** and **SBK_BG_28SEG** PCBs with MAX7221 LED drivers.
+- **Proper LED Driver PCBs for the Bar Meter** (using HT16K33 or MAX72xx drivers). We recommend using the **SBK BarDrive SK28 V2.0** and **SBK BarMeter 28 V0** PCBs with MAX7221 LED drivers.
 - **6-12V Power Pack:** We suggest using a 6V NiMh flat pack that fits the battery holder 3D model in this project, but you may choose your own power source.
 - Options :
    - **1x B10K Potentiometers** for volume control 
@@ -78,10 +78,10 @@ See the ***Electronic Parts List*** in the ***Ressources*** folder for full deta
    - **1x small vape pen, vacuum activated** for smoke effect
 
 ### SBK PCBs
-- Main PCB :                                       **SBK_WRISTBLASTER_PCB_II V0**
-- Driver PCB for **common cathode** bar meter :    **SBK_WB_BG_SK_DR V0**
-- Driver PCB for **common anode** bar meter :      **SBK_WB_BG_SA_DR V0**
-- Bar meter holder PCB for BL28-3005Sx bar meter : **SBK_WB_BG_28SEG V0**
+- Main PCB :                                       **SBK_WRISTBLASTER_PCB_II V0.2**
+- Driver PCB for **common cathode** bar meter :    **SBK BarDrive SK28 V2.0**
+- Driver PCB for **common anode** bar meter :      **SBK BarDrive SA28 V2.0**
+- Bar meter holder PCB for BL28-3005Sx bar meter : **SBK BarMeter 28 V0**
   
   PCBs are produced in small batches and on demand, with only a small amount kept in stock.
   
