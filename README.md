@@ -139,7 +139,7 @@ Additional tracks can be placed in a named "/01" folder of the SD card; these tr
 
 ## Schematics
 
-The provided schematics show the wiring using the SBK custom PCBs, making the assembly easier and cleaner. Using the SBK_BG_Sx_DRIVER for the bar meter and the SBK_BG_28SEG with MAX72xx simplifies the LED matrix connection. The fan and vacuum pump are also directly powered from the PCB's dedicated 5V-500mA outputs.
+The provided schematics show the wiring using the SBK custom PCBs, making the assembly easier and cleaner. Using the *SBK BarMater 28* for the bar meter and the *SBK BarDrive xx28* with MAX72xx simplifies the Bar Meter connections. The fan and vacuum pump are also directly powered from the PCB's dedicated 5V-500mA outputs, flyback diodes should be installed between positive and negative wires of these devices for circuit protection.
 
 ## Demo Video
 
