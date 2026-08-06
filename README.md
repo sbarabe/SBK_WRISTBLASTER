@@ -4,9 +4,9 @@
 
 3D model updated to V2, see 3D model README file for details.
 Work in progress :
-- Code update for last electronics boards.
-- New electronic board with SMD parts. 
-- Schematics and diagram for new boards.
+- Code update : bug fixes and new electronics boards configuration.
+- New electronic board with SMD parts to make life easier... 
+- Schematics and diagrams for new boards.
 ---
 Wrist Blaster rendering :
 
