@@ -1,5 +1,15 @@
 # SBK WRISTBLASTER 3D MODEL
+---
+**2026-08-06 UPDATE**
 
+3D model updates to **V2**.
+- Some interferences fixed.
+- Fire Rod LEDs jewel distance from lens was adjusted for better luminosity, a LEDs holder (part #34) was created for this, Rod Box and Lens Holder were adapted too.
+- Handle was corrected for 3/8 copper pipe, about 10mm outside diameter.
+- Gunbox and base plate modified for last electronic PCBs version.
+- Changed parts are marked as V2.
+- Some previous electronics PCBs may not fit without model modifications
+---
 3D model for 3D printing of a *Ghostbusters: Frozen Empire* inspired Wrist Blaster replica.
 
 The 3D model provided is part of this project: [SBK_WRISTBLASTER](https://github.com/SmartBuildsKits/SBK_WRISTBLASTER).
