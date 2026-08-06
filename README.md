@@ -2,7 +2,7 @@
 ---
 **2026-08-06 UPDATE**
 
-3D model updates to V2, see 3D model README file for details.
+3D model updated to V2, see 3D model README file for details.
 Work in progress :
 - Code update for last electronics boards.
 - New electronic board with SMD parts. 
