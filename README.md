@@ -1,4 +1,13 @@
 # SBK_WRISTBLASTER
+---
+**2026-08-06 UPDATE**
+
+3D model updates to V2, see 3D model README file for details.
+Work in progress :
+- Code update for last electronics boards.
+- New electronic board with SMD parts. 
+- Schematics and diagram for new boards.
+---
 Wrist Blaster rendering :
 
    <img src="images/screenshot1.png" alt="Screenshot of Wrist Blaster" width="400"/> <img src="images/screenshot2.png" alt="Screenshot of Wrist Blaster" width="400"/>
