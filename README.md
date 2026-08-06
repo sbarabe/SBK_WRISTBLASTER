@@ -1,9 +1,10 @@
 # SBK_WRISTBLASTER
 ---
 **2026-08-06 UPDATE**
-
+https://github.com/sbarabe/SBK_WRISTBLASTER/blob/main/README.md
 3D model updated to V2, see 3D model README file for details.
 Work in progress :
+- 3D model V2 parts list
 - Code update : bug fixes and new electronics boards configuration.
 - New electronic board with SMD parts to make life easier... 
 - Schematics and diagrams for new boards.
