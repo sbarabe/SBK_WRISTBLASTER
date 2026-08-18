@@ -19,7 +19,6 @@ Arm braced Power Cell battery pack holder for Wrist Blaster, 8 pixels WS2812 sti
    <img src="images/Arm braced 8 pixels PowerCell Battery pack holder.jpg" alt="Screenshot of 8 pixels PowerCell" width="275"/>    <img src="images/Arm braced 24seg BarMeter PowerCell Battery pack holder (1).jpg" alt="Screenshot of 24seg BarMeter PowerCell" width="138"/>
 
 
-
 ## Overview
 
 This project is for a custom-built wrist blaster prop, inspired by the *Ghostbusters: Frozen Empire* movie.
@@ -41,15 +40,6 @@ This project is intended for prop enthusiasts, cosplayers, and makers who want t
 - 📟 **MAX7219 or HT16K33 Support:** bar meter driver using MAX7219 or HT16K33 LEDs driver.
 - 🎮 **Standalone Operation:** The code can run without a functional player, making debugging easier.
 - 📊 **Serial Debugging:** Real-time debugging through the Arduino IDE.
-- 💨 **Vacuum Pump and Fan Outputs:** Dedicated 5V outputs (0.5A max each) for controlling smoke effects, fully integrated on the PCB.
-
-   ***Note about Smoke Effect:***
-  
-  We have not yet found an ideal combination of pump, fan, and smoke device that is small enough to fit inside the blaster while providing a    satisfactory smoke effect. We're actively working on this and therefore do not currently recommend any specific device combination.
-
-   However, the board includes two outputs dedicated to smoke effect control. These outputs are driven simultaneously and can be used to power a pump and fan directly (as long as the devices are within the board’s rated voltage and current limits). Alternatively, you can use these outputs to drive a relay or other interface to control your smoke devices.
-
-   If you discover a combination that delivers a good smoke effect in this setup, we’d love to hear from you!
 
 ## 3D Model Design Features and Choices  
 
@@ -63,37 +53,42 @@ While aiming for screen accuracy in the *Ghostbusters* inspired Wrist Blaster de
 - **Optional features:**  
   - **Volume control:** Adjustable via the front knob and potentiometer.  
   - **Fire strobe hue control:** Adjustable using the Clippard valve knob and potentiometer.  
-  - **Smoke effect:** The intended setup includes a fan inside the heatsink, a pump inside the Clippard valve body, and a vacuum-activated vape system inside the Cyclotron tube. The board provides two operational outputs to control the fan and pump simultaneously. These can be used directly (within rated voltage and current limits) or through a relay. ***That said, we haven't find yet a good combinaison of smoke devices (fan, pump, and vape system) smal enough to fit inside the blaster and providing good smoke effects.***
-
- 
     
 ## Hardware Requirements
-See the ***Electronic Parts List*** in the ***Ressources*** folder for full details, here are the main components :
+
+> **Estimated Electronics Cost:**  
+> Makers sourcing the electronic components themselves should expect a total cost of approximately **$100–140 USD**, including a **7.2V NiMh battery pack**. Actual cost will vary depending on suppliers, shipping, component availability, and PCB ordering quantities. This estimate covers the electronics required for the main build and does not include 3D printing materials, hardware, straps, or cosmetic parts.
+
+See the ***Electronic Parts List*** in the ***Resources*** folder for full details, here are the main components :
+
+
 - **Arduino Nano Every** (not to be confused with the regular Nano)
 - **DFPlayer Mini DFR0299 (genuine)** and an SD card
-- **A fully populated custom SBK Wristblaster PCB** 
+- **A fully populated custom SBK Wristblaster PCB**
 - **4x Mini Blue Toggle Switches** (or replace one switch with a push button for the "Activate")
 - **5x WS2812 Single LED Pixels**
 - **2x WS2812 7-LED Jewels**
 - **1x 16mm Momentary Push Button with Yellow LED Indicator** (R16-503)
 - **1x 28-Segment Bar Meter** (BL28-3000-Sx04Y)
-- **1x 2in 5W 4Ohms speaker**
+- **1x 2in 5W 4-Ohm speaker**
 - **Proper LED Driver PCBs for the Bar Meter** (using HT16K33 or MAX72xx drivers). We recommend using the **SBK BarDrive SK28 V2.0** and **SBK BarMeter 28 V0** PCBs with MAX7221 LED drivers.
-- **6-12V Power Pack:** We suggest using a 6V NiMh flat pack that fits the battery holder 3D model in this project, but you may choose your own power source.
-- Options :
-   - **1x B10K Potentiometers** for volume control 
-   - **1x B10K Potentiometers** for fire strobe hue control
-   - **1x 3006 or 3007 5VDC fan** for smoke effect
-   - **1x 5VDC mini pump** for smoke effect
-   - **1x small vape pen, vacuum activated** for smoke effect
+- **6–12V Power Pack:** We recommend a **7.2V NiMH flat battery pack** that fits the battery holder 3D model provided with this project, but another suitable power source within the supported voltage range may be used.
+
+### Optional Components
+
+- **1x B10K potentiometer** for volume control
+- **1x B10K potentiometer** for fire strobe hue control
+
 
 ### SBK PCBs
-- Main PCB :                                       **SBK_WRISTBLASTER_PCB_II V0.2**
-- Driver PCB for **common cathode** bar meter :    **SBK BarDrive SK28 V2.0**
-- Driver PCB for **common anode** bar meter :      **SBK BarDrive SA28 V2.0**
-- Bar meter holder PCB for BL28-3005Sx bar meter : **SBK BarMeter 28 V0**
-  
-  PCBs are produced in small batches and on demand, with only a small amount kept in stock.
+
+- Main PCB: **SBK_WRISTBLASTER_PCB_II V0.2**
+- Driver PCB for **common cathode** bar meter: **SBK BarDrive SK28 V2.0**
+- Driver PCB for **common anode** bar meter: **SBK BarDrive SA28 V2.0**
+- Bar meter holder PCB for BL28-3005Sx bar meter: **SBK BarMeter 28 V0**
+
+PCBs are produced in small batches and on demand, with only a small amount kept in stock.
+
   
   💻 ***Inquiries for PCBs*** can be sent to [SmartBuildsKits@gmail.com](mailto:SmartBuildsKits@gmail.com).
 
