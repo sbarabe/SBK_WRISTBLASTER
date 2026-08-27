@@ -2,18 +2,24 @@
 Arduino firmware, electronics, and 3D-printable parts for a custom Wrist Blaster prop inspired by *Ghostbusters: Frozen Empire*.
 
 ---
+Work in progress :
+- 3D model V2 parts list.
+- Update electronics parts list.
+- Update assembly guide for PCBs : PropCore One V2, BarDrive Max28 V1, BarMeter Sx28.
+- New electronic board with SMD parts to make life easier...
+- Polyphonic capability : dream board with polyphonic capability and embedded SDCard reader, player, amplifier, power circuits.
+  
+---
 **2026-08-27 UPDATE**
 - Firmware release v1.1.0.
-- New schematic drawing with SBK PropCore One, BarDrive MAX28 and BarMeter Sx28 PCBs. 
+- New schematic drawing with SBK PropCore One, BarDrive MAX28 and BarMeter Sx28 PCBs.
+  
 ---
+
 **2026-08-06 UPDATE**
 https://github.com/sbarabe/SBK_WRISTBLASTER/blob/main/README.md
 3D model updated to V2, see 3D model README file for details.
-Work in progress :
-- 3D model V2 parts list
-- Code update : bug fixes and new electronics boards configuration.
-- New electronic board with SMD parts to make life easier... 
-- Schematics and diagrams for new boards.
+
 ---
 
 <p>
