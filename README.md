@@ -17,10 +17,8 @@ Work in progress :
 ---
 
 **2026-08-06 UPDATE**
-
-https://github.com/sbarabe/SBK_WRISTBLASTER/blob/main/README.md
-
-3D model updated to V2, see 3D model README file for details.
+- https://github.com/sbarabe/SBK_WRISTBLASTER/blob/main/README.md
+- 3D model updated to V2, see 3D model README file for details.
 
 ---
 
