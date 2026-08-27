@@ -1,4 +1,10 @@
 # SBK_WRISTBLASTER
+Arduino firmware, electronics, and 3D-printable parts for a custom Wrist Blaster prop inspired by *Ghostbusters: Frozen Empire*.
+
+---
+**2026-08-27 UPDATE**
+- Firmware release v1.1.0.
+- New schematic drawing with SBK PropCore One, BarDrive MAX28 and BarMeter Sx28 PCBs. 
 ---
 **2026-08-06 UPDATE**
 https://github.com/sbarabe/SBK_WRISTBLASTER/blob/main/README.md
@@ -9,142 +15,218 @@ Work in progress :
 - New electronic board with SMD parts to make life easier... 
 - Schematics and diagrams for new boards.
 ---
-Wrist Blaster rendering :
 
-   <img src="images/screenshot1.png" alt="Screenshot of Wrist Blaster" width="400"/> <img src="images/screenshot2.png" alt="Screenshot of Wrist Blaster" width="400"/>
+<p>
+  <img src="images/screenshot1.png" alt="SBK Wrist Blaster rendering" width="400">
+  <img src="images/screenshot2.png" alt="SBK Wrist Blaster rendering" width="400">
+</p>
 
+Power Cell battery-pack options:
 
-Arm braced Power Cell battery pack holder for Wrist Blaster, 8 pixels WS2812 stick version, and 24 segements Bar Meter version :
+<p>
+  <img src="images/Arm braced 8 pixels PowerCell Battery pack holder.jpg" alt="8-pixel WS2812 Power Cell" width="275">
+  <img src="images/Arm braced 24seg BarMeter PowerCell Battery pack holder (1).jpg" alt="24-segment bar meter Power Cell" width="138">
+</p>
 
-   <img src="images/Arm braced 8 pixels PowerCell Battery pack holder.jpg" alt="Screenshot of 8 pixels PowerCell" width="275"/>    <img src="images/Arm braced 24seg BarMeter PowerCell Battery pack holder (1).jpg" alt="Screenshot of 24seg BarMeter PowerCell" width="138"/>
+## Current Firmware Release
 
+**Version 1.1.0**
+
+This release introduces a revised prop workflow, broader hardware support, optional Power Cell displays, and several fixes and internal improvements.
+
+### Highlights in v1.1.0
+
+- Revised power-up, Cyclotron, firing, overheat, venting, and shutdown sequences.
+- Predefined pin mappings for several SBK controller boards, plus a custom-pin option.
+- Panel bar meter support through either a MAX7219/MAX7221 or HT16K33 driver.
+- Optional Power Cell using either:
+  - an addressable WS2812 LED strip; or
+  - a 24-segment bar meter driven by a MAX72xx or HT16K33.
+- Power Cell WS2812 LEDs can share the main LED chain or use a separate output when supported by the selected board.
+- Optional battery monitoring and low-battery shutdown on boards with a battery-sense input.
+- Configurable switch logic, animation directions, segment mappings, potentiometers, illuminated fire button, and serial debugging.
+- Support for DFPlayer communication through SoftwareSerial or the Nano Every hardware `Serial1` interface, depending on the selected board.
+- Modularized bar meter drivers and animation engines.
+- Smoke support remains optional and experimental; it is disabled by default.
 
 ## Overview
 
-This project is for a custom-built wrist blaster prop, inspired by the *Ghostbusters: Frozen Empire* movie.
+`SBK_WRISTBLASTER_CORE` controls the prop's lighting animations, sound effects, switches, indicators, firing modes, heat simulation, and optional accessories.
 
-The **SBK_WRISTBLASTER_CORE** firmware is designed to control LED animations, sound effects, and mechanical features using an Arduino Nano Every.
+The repository also includes 3D-printable parts, schematics, example sound effects, and resources for building the complete prop. The SBK PCBs are designed to fit the provided 3D model, but the firmware can also be adapted to other custom prop builds.
 
-A 3D model is provided for 3D printing parts for this project. While the SBK PCBs are designed to fit this model, they can also be used in other designs.
+## Main Features
 
-The provided schematics utilize the SBK PCBs for easier assembly. Due to the restricted space inside the blaster, using these PCBs ensures that all components fit neatly inside.
+- **Sound effects:** DFPlayer Mini playback synchronized with prop states and animations.
+- **Addressable lighting:** WS2812 animations for the firing tip, indicators, vent, Cyclotron, and optional Power Cell.
+- **Panel bar meter:** Heat-level animation with configurable segment count, direction, and mapping.
+- **Two firing modes:** Capture stream at regular Cyclotron power and burst firing at full power.
+- **Heat and overheat simulation:** Heat accumulates while firing and cools while idle; extended firing triggers warning and venting sequences.
+- **Party Mode:** Plays tracks stored in folder `/01` on the DFPlayer SD card.
+- **Optional controls:** Volume and firing-hue potentiometers.
+- **Optional battery monitoring:** Configurable battery chemistry, scaling, and low-voltage cutoff.
+- **Standalone diagnostics:** The firmware can run without a working audio player, and serial debugging can be enabled in the configuration file.
 
-This project is intended for prop enthusiasts, cosplayers, and makers who want to create a realistic and interactive wrist blaster with dynamic lighting effects and customizable sound.
+## Supported Controller Configurations
 
-## Features
+Select exactly one controller definition in `SBK_WRISTBLASTER_CONFIG.h`.
 
-- 🎶 **Sound Effects:** Controlled using a DFPlayer Mini.
-- 💡 **LED Animations:** Custom LED bar meters, cycling lights, and pulsating effects.
-- 🔥 **Heat Level Simulation:** LED bar that rises with the "heat level" and gradually cools down when not in use.
-- 🎛 **Potentiometer Control:** Adjust volume and firing strobe hue.
-- 📟 **MAX7219 or HT16K33 Support:** bar meter driver using MAX7219 or HT16K33 LEDs driver.
-- 🎮 **Standalone Operation:** The code can run without a functional player, making debugging easier.
-- 📊 **Serial Debugging:** Real-time debugging through the Arduino IDE.
+> **Recommended controller:** The preferred and currently documented PCB for this firmware release is **SBK PropCore ONE Vx** (`SBK_PROPCORE_ONE_Vx`). Its schematic is available in the repository's [`Schematics`](https://github.com/sbarabe/SBK_WRISTBLASTER/tree/main/Schematics) folder. The other definitions are retained for compatibility with earlier boards or custom builds.
 
-## 3D Model Design Features and Choices  
+| Configuration | Supported MCU | Status and notes |
+| --- | --- | --- |
+| `SBK_PROPCORE_ONE_Vx` | Arduino Nano or Nano Every | **Preferred configuration.** Matches the currently available GitHub schematic and provides a separate WS2812 Power Cell output and battery-sense input. |
+| `SBK_WRIST_BLASTER_PCB_V2` | Arduino Nano Every | Legacy board support; no dedicated Power Cell or battery-monitoring connection. |
+| `SBK_WRIST_BLASTER_II_PCB_Vx` | Arduino Nano or Nano Every | Legacy board support; no dedicated Power Cell or battery-monitoring connection. |
+| `SBK_PROPCORE_ONE_PLUS_Vx` | Arduino Nano Every | Alternate/extended configuration using hardware `Serial1`, a dedicated Power Cell bar meter interface, and a battery-sense input. |
+| `CUSTOM_PINS_DEFINITION` | User-defined | Advanced custom builds; edit the dedicated custom section in `SBK_WRISTBLASTER_PINS_DEF.h`. |
 
-While aiming for screen accuracy in the *Ghostbusters* inspired Wrist Blaster design,some modifications have been made for usability and practicality. We envision this version as an evolution of the first prototype seen in *Frozen Empire*:  
-
-- The **Activate Push Button** has been replaced with a switch. The original push button's position was difficult to reach when the blaster was strapped to the right arm. You can still use the push button if desired by setting **INTENSIFY_IS_A_SWITCH** to **false** in the config file.  
-- The straps do not pass through the main body but instead go between the main body and the arm brace plate. This design provides more internal space for electronics and the speaker.  
-- The arm brace plate is curved to accommodate a 3/8" copper pipe as a handle, which can be secured with zip ties through the plate holes.  
-- Indicator plastic lenses have a modern style and are easily available from suppliers like Digi-Key or Mouser.  
-- The fire button features a yellow light indicator.  
-- **Optional features:**  
-  - **Volume control:** Adjustable via the front knob and potentiometer.  
-  - **Fire strobe hue control:** Adjustable using the Clippard valve knob and potentiometer.  
-    
 ## Hardware Requirements
 
-> **Estimated Electronics Cost:**  
-> Makers sourcing the electronic components themselves should expect a total cost of approximately **$100–140 USD**, including a **7.2V NiMh battery pack**. Actual cost will vary depending on suppliers, shipping, component availability, and PCB ordering quantities. This estimate covers the electronics required for the main build and does not include 3D printing materials, hardware, straps, or cosmetic parts.
+> **Estimated electronics cost:** Makers sourcing the components themselves should expect approximately **$100–140 USD**, including a **7.2 V NiMH battery pack**. Actual cost depends on suppliers, shipping, component availability, and PCB quantities. This estimate excludes 3D-printing material, hardware, straps, and cosmetic parts.
 
-See the ***Electronic Parts List*** in the ***Resources*** folder for full details, here are the main components :
+See the electronic parts list in the `Resources` folder for complete details. A typical build uses:
 
+- Arduino Nano Every.
+- Genuine DFRobot DFPlayer Mini DFR0299 and a microSD card.
+- Populated SBK controller PCB.
+- Four miniature toggle switches, with the Intensify control optionally replaced by a push button.
+- Five individual WS2812 pixels.
+- Two 7-pixel WS2812 jewels.
+- One 16 mm momentary fire button with a yellow LED, such as the R16-503.
+- One 28-segment bar meter, such as the BL28-3000-Sx04Y.
+- Compatible MAX7219/MAX7221 or HT16K33 bar meter driver hardware.
+- One 2-inch, 3-5 W, 4-ohm speaker (check speaker footprint with the 3D model).
+- A suitable 6–12 V power source; a 7.2 V NiMH flat pack is recommended for the provided battery holder.
 
-- **Arduino Nano Every** (not to be confused with the regular Nano)
-- **DFPlayer Mini DFR0299 (genuine)** and an SD card
-- **A fully populated custom SBK Wristblaster PCB**
-- **4x Mini Blue Toggle Switches** (or replace one switch with a push button for the "Activate")
-- **5x WS2812 Single LED Pixels**
-- **2x WS2812 7-LED Jewels**
-- **1x 16mm Momentary Push Button with Yellow LED Indicator** (R16-503)
-- **1x 28-Segment Bar Meter** (BL28-3000-Sx04Y)
-- **1x 2in 5W 4-Ohm speaker**
-- **Proper LED Driver PCBs for the Bar Meter** (using HT16K33 or MAX72xx drivers). We recommend using the **SBK BarDrive SK28 V2.0** and **SBK BarMeter 28 V0** PCBs with MAX7221 LED drivers.
-- **6–12V Power Pack:** We recommend a **7.2V NiMH flat battery pack** that fits the battery holder 3D model provided with this project, but another suitable power source within the supported voltage range may be used.
+Optional components include:
 
-### Optional Components
-
-- **1x B10K potentiometer** for volume control
-- **1x B10K potentiometer** for fire strobe hue control
-
+- One B10K potentiometer for volume **RECCOMENDED**.
+- One B10K potentiometer for firing-strobe hue.
+- An 8-pixel WS2812 Power Cell strip or a 24-segment Power Cell bar meter.
+- Smoke and fan hardware for experimental smoke effects.
 
 ### SBK PCBs
 
-- Main PCB: **SBK_WRISTBLASTER_PCB_II V0.2**
-- Driver PCB for **common cathode** bar meter: **SBK BarDrive SK28 V2.0**
-- Driver PCB for **common anode** bar meter: **SBK BarDrive SA28 V2.0**
-- Bar meter holder PCB for BL28-3005Sx bar meter: **SBK BarMeter 28 V0**
+- Main controller: **SBK Wrist Blaster PCB II** or **SBK PropCore ONE/ONE+**, according to the build.
+- Common-cathode bar meter driver: **SBK BarMeter SK28 V1**.
+- Common-anode bar meter driver: **SBK BarMeter SA28 V1**.
+- 28-segment bar meter driver: **SBK BarDrive MAX28 V1** or **SBK BarDrive HT28 V1**.
+- Optional 24-segment Power Cell bar meter and driver PCBs.
 
-PCBs are produced in small batches and on demand, with only a small amount kept in stock.
-
-  
-  💻 ***Inquiries for PCBs*** can be sent to [SmartBuildsKits@gmail.com](mailto:SmartBuildsKits@gmail.com).
+PCBs are produced in small batches and on demand. For availability, contact [SmartBuildsKits@gmail.com](mailto:SmartBuildsKits@gmail.com).
 
 ## Firmware Installation
 
-1. **Download the files:**
+### 1. Download the project
 
-- Go to the GitHub repository: [SBK_WRISTBLASTER](https://github.com/SmartBuildsKits/SBK_WRISTBLASTER)
-- Click on the **Code** button and select **Download ZIP**.
-- Extract the ZIP file to your computer.
+- Download the repository ZIP from [SBK_WRISTBLASTER](https://github.com/sbarabe/SBK_WRISTBLASTER), or clone the repository.
+- Extract the files.
 
-2. **Move the files to the correct folders:**
+### 2. Install the sketch and bundled engine files
 
-- Copy the **SBK_WRISTBLASTER_CORE** folder inside your Arduino IDE **Sketches** folder.
-- In that folder, you will find another folder named **SBK_WristBlaster_lib**, move it inside your Arduino IDE **Sketches\libraries** folder.
+- Copy the `SBK_WRISTBLASTER_CORE` folder into your Arduino sketchbook.
+- Move the bundled `SBK_WristBlaster_lib` folder into the Arduino sketchbook `libraries` folder.
 
-3. **Install required libraries:**
+The final structure should resemble:
 
-- Open Arduino IDE and use the **Library Manager** to install the following libraries along with all their dependencies:
-    - **Adafruit_NeoPixel.h**
-    - **DFPlayerMini_Fast.h**
+```text
+Arduino/
+├── libraries/
+│   └── SBK_WristBlaster_lib/
+└── SBK_WRISTBLASTER_CORE/
+    ├── SBK_WRISTBLASTER_CORE.ino
+    ├── SBK_WRISTBLASTER_CONFIG.h
+    └── SBK_WRISTBLASTER_PINS_DEF.h
+```
 
-4. **Upload the code:**
+### 3. Install external libraries
 
-- From the Arduino IDE Sketches folder, open **SBK_WRISTBLASTER_CORE.ino** in Arduino IDE.
-- You'll see two tabs: the **CONFIG** file and the **CORE** file.
-- **Do not modify the main code file** (**SBK_WRISTBLASTER_CORE.ino**) : it is designed to remain untouched.
-- Review and modify your settings in **SBK_WRISTBLASTER_CONFIG.h** according to your build.
-- Connect your Arduino Nano Every to your computer using a suitable USB cable.
-- Select the correct **COM port** and set **Arduino Nano Every** as your board.
-- Upload the sketch.
+Using the Arduino IDE Library Manager, install:
 
-## Sound Effects
+- **Adafruit NeoPixel**
+- **DFPlayerMini_Fast**
 
-Sound effects examples are provided for this project. They fit the tracks numbers and lengths defined in the firmware config file. Since DFPlayer play file not by name but by the order they have been written on the SD card, each sound effect should be placed one by one in the correct order on clean formated SD card root folder. 
-Additional tracks can be placed in a named "/01" folder of the SD card; these tracks will play in Party Mode.
+Install all dependencies requested by the Arduino IDE.
 
-**Disclaimer**: The sound effects in this project are derived from the *Ghostbusters* movies and video games, which are commonly available within the *Ghostbusters* community. These sounds are not owned by me, and the original works are copyrighted by their respective owners. The sound effects here have been edited, cut, and remixed for use in this project. No copyright infringement is intended. It is your responsibility to ensure that your use of these sound effects does not violate copyright laws.
+### 4. Configure the firmware
 
-## Usage
+Open `SBK_WRISTBLASTER_CONFIG.h` and select exactly one PCB configuration:
 
-- **Power On:** Flip the main power switch.
-- **Cyclotron On:** Flip the cyclotron switch, you can fire when switch is on.
-- **Fire Type:** Flip Activate Switch to select between Capture or Burst Fire.
-- **Fire :** Press the trigger button to initiate the firing sequence with synchronized LEDs and sound effects.
-- **Overheat:** Blaster will overheat, vent and reboot after a few Burst shots or a long Capture shot. Blaster is cooling down while in idle...
-- **Party Mode:** Engage in playback mode. Use Fire Button to switch track :
-   -  **Short press** → Next track
-   -  **Long press** → Previous track
-- **Smoke:** While in the **Power Off state**, press and hold the Fire Button for **3 seconds** to enable or disable the smoke device. The **Top White Indicator** will change color to show the status:
-   - **Green** → Smoke device enabled
-   - **Red** → Smoke device disabled
+```cpp
+// Define exactly one:
+// #define CUSTOM_PINS_DEFINITION
+// #define SBK_WRIST_BLASTER_PCB_V2
+// #define SBK_WRIST_BLASTER_II_PCB_Vx
+#define SBK_PROPCORE_ONE_Vx
+// #define SBK_PROPCORE_ONE_PLUS_Vx
+```
+
+Then review the remaining configuration sections for your build:
+
+- switch and button type and logic;
+- panel bar meter driver, direction, segment count, and mapping;
+- WS2812 LED count and indexes;
+- Power Cell type, driver, direction, and mapping;
+- smoke effects, which are experimental and disabled by default;
+- volume and firing-hue potentiometers;
+- battery type, voltage scaling, and low-battery cutoff;
+- DFPlayer volume, timing, and track durations;
+- serial debugging.
+
+> **Important:** Audio sequencing normally uses the track durations defined in `SBK_WRISTBLASTER_CONFIG.h`. Incorrect durations can desynchronize the sound and animations. BUSY-pin timing is available for experimentation but is not recommended by default.
+
+Avoid modifying `SBK_WRISTBLASTER_CORE.ino`. For custom wiring, select `CUSTOM_PINS_DEFINITION` and edit only its dedicated section in `SBK_WRISTBLASTER_PINS_DEF.h`.
+
+### 5. Compile and upload
+
+- Open `SBK_WRISTBLASTER_CORE.ino` in the Arduino IDE.
+- Select the board that matches the chosen controller configuration.
+- Select the correct serial port.
+- Compile and upload the sketch.
+
+## Sound Effects and SD Card Setup
+
+The provided example sound effects match the track numbers and default durations in the firmware configuration.
+
+The DFPlayer identifies root-folder tracks by their copy order rather than reliably by filename. Start with a freshly formatted microSD card and copy the required root tracks to it one at a time, in numerical order.
+
+Place additional music tracks in folder `/01`; these are used by Party Mode.
+
+If you replace or edit a sound file, update its duration in `SBK_WRISTBLASTER_CONFIG.h` so the corresponding animation remains synchronized.
+
+### Sound-effects disclaimer
+
+The example sound effects are derived from *Ghostbusters* films and games and remain the property of their respective copyright holders. They are provided as edited examples for this fan project. You are responsible for ensuring that your use complies with applicable copyright law.
+
+## Controls and Operation
+
+- **Main Power:** Turns the blaster on or starts the shutdown sequence.
+- **Cyclotron Power:** Starts the Cyclotron and enables regular-power Capture firing.
+- **Activate:** Raises the Cyclotron to full power and enables Burst firing.
+- **Fire Button:** Starts the firing sequence for the currently selected power level.
+- **Intensify:** Enters or exits Party Mode. It can be configured as either a push button or a switch.
+- **Party Mode navigation:** Short-press Fire for the next track; long-press Fire for the previous track.
+- **Overheat:** Repeated Burst shots or a long Capture stream can trigger an overheat warning, venting sequence, and system restart.
+
+When experimental smoke support is compiled in, hold the Fire button while the blaster is in the Power Off state to view or change the smoke-enable status. The top white indicator displays green when enabled and red when disabled.
+
+## 3D Model Design Choices
+
+The model aims for the rugged, prototype-like appearance of the *Frozen Empire* prop while making several practical changes:
+
+- The Intensify control may be built as a switch because its original push-button position is difficult to reach while the blaster is worn on the right arm.
+- The straps pass between the main body and the arm-brace plate, leaving more internal room for the electronics and speaker.
+- The arm-brace plate is curved to accept a 3/8-inch copper-pipe handle secured through the plate holes.
+- The indicator lenses use modern, readily available parts.
+- The fire button includes a yellow indicator LED.
+- The front knob and Clippard-valve knob can optionally control volume and firing hue.
+
+See the README in the `3D model` folder for model-specific information and revision notes.
 
 ## Schematics
 
-The provided schematics show the wiring using the SBK custom PCBs, making the assembly easier and cleaner. Using the *SBK BarMater 28* for the bar meter and the *SBK BarDrive xx28* with MAX72xx simplifies the Bar Meter connections. The fan and vacuum pump are also directly powered from the PCB's dedicated 5V-500mA outputs, flyback diodes should be installed between positive and negative wires of these devices for circuit protection.
+Schematics in the `Schematics` folder show the wiring for the supported SBK controller, BarDrive, and BarMeter PCBs. Confirm that the schematic revision matches your controller selection and firmware configuration before assembly.
 
 ## Demo Video
 
@@ -152,58 +234,32 @@ The provided schematics show the wiring using the SBK custom PCBs, making the as
 
 ## Contributing
 
-Pull requests are welcome! If you'd like to contribute to improving this project, please fork the repository and submit your changes.
+Pull requests are welcome. Please fork the repository, test your changes on the intended hardware, and describe the controller and configuration used for testing.
 
 ## License
 
-Shield: [![CC BY 4.0][cc-by-shield]][cc-by]
+- The firmware source files identify the code as licensed under the **MIT License**.
+- The repository-level `LICENSE` file covers the remaining project material under **Creative Commons Attribution 4.0 International (CC BY 4.0)**.
+- Included or referenced *Ghostbusters* media remains the property of its respective copyright holders and is not relicensed by this project.
 
-This work is licensed under a
-[Creative Commons Attribution 4.0 International License][cc-by].
+See the repository `LICENSE` file and the headers of individual source files for the terms that apply to each item.
 
-[![CC BY 4.0][cc-by-image]][cc-by]
+## Author and Collaborator
 
-[cc-by]: http://creativecommons.org/licenses/by/4.0/
-[cc-by-image]: https://i.creativecommons.org/l/by/4.0/88x31.png
-[cc-by-shield]: https://img.shields.io/badge/License-CC%20BY%204.0-lightgrey.svg
-
-This means:
-
-✅ You are free to share (copy and redistribute) and adapt (remix, transform, build upon) the material.
-
-❌ Commercial use is prohibited without the author's consent.
-
-✅ You must give appropriate credit and link to the original project.
-
-For more details, see the full license text: CC BY-NC 4.0.
-
-## Author & Collaborator
 ### Author: Samuel Barabé
-- 👨‍💻 Father of four, engineer, outdoor enthusiast, and passionate maker.
-- 🛠 Addicted to MCU programming, coding, and 3D design.
-- 👻 Inspired by the rugged, prototype-like aesthetic of Ghostbusters devices.
-- 💡 This project was born from my love for creative electronics, practical prototyping, and immersive props.
-- 🎁 I especially love making props for my children, bringing their favorite fictional worlds to life.
+
+Engineer and maker focused on embedded programming, electronics, 3D design, and immersive props.
 
 ### Collaborator: David Miyakawa
-- 🎨 Talented graphic designer with a deep love for the Ghostbusters lore.
-- 🎶 Major contributor to sound effects design, prop look development and screen-accurate, device work flow.
-- 🛠 Skilled in assembling, painting, and finishing props to high-quality standards.
-- 💡 David's input has been invaluable in achieving realistic soundscapes, design accuracy, and practical prop assembly.
 
-## Contact
+Graphic designer and *Ghostbusters* enthusiast who contributed to sound design, prop appearance, screen-inspired workflow, assembly, painting, and finishing.
 
-📧 **Email:** [SmartBuildsKits@gmail.com](mailto:SmartBuildsKits@gmail.com)
+## Contact and Support
 
-🌐 **Website:** [https://github.com/SmartBuildsKits](https://github.com/SmartBuildsKits)
-
-## Support
-
-💸 To keep this project and keep development going, you can **acquire a PCB** or **donate via PayPal**: [Donate via PayPal](https://paypal.me/sbarab?country.x=CA&locale.x=fr_CA).
-
-💻 ***Inquiries for PCBs*** can be sent to [SmartBuildsKits@gmail.com](mailto:SmartBuildsKits@gmail.com).
+- Email and PCB inquiries: [SmartBuildsKits@gmail.com](mailto:SmartBuildsKits@gmail.com)
+- GitHub: [sbarabe](https://github.com/sbarabe)
+- Donations: [PayPal](https://paypal.me/sbarab?country.x=CA&locale.x=fr_CA)
 
 ---
 
-Enjoy building your wrist blaster! 🚀💥
-
+Enjoy building your Wrist Blaster!
