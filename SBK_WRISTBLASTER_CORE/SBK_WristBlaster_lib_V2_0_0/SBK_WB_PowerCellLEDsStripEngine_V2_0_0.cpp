@@ -5,7 +5,7 @@
  *  @author      Samuel Barabé  
  *  @copyright   Copyright (c) 2025-2026 Samuel Barabé  
  *  @license     MIT License (code)  
- *  @version     1.1.0
+ *  @version     2.0.0
  *  @link        https://github.com/sbarabe/SBK_WRISTBLASTER/tree/main/SBK_WRISTBLASTER_CORE
  *
  *  For more information, visit the project page: <https://github.com/sbarabe/SBK_WRISTBLASTER/tree/main/SBK_WRISTBLASTER_CORE>.
@@ -16,7 +16,7 @@
  *  including but not limited to the warranties of merchantability or fitness for a particular purpose.
  */
 
-#include "SBK_WB_PowerCellLEDsStripEngine_V1_1_0.h"
+#include "SBK_WB_PowerCellLEDsStripEngine_V2_0_0.h"
 
 /* DEBUG MESSAGES TO SERIAL */
 // comment/uncomment #define DEBUG_TO_SERIAL to receive serial message
@@ -33,10 +33,10 @@
 // Blue intensity for animation
 const uint8_t POWERCELL_BLUE = 175;
 
-PowerCell::PowerCell(Adafruit_NeoPixel *strip, const uint8_t *numLeds, const uint8_t *start, const uint8_t *end, const bool *direction)
+PowerCell::PowerCell(Adafruit_NeoPixel *strip, const uint8_t numLeds, const uint8_t start, const uint8_t end, const bool direction)
     : LedsStrip(strip),
-      P_NUMLEDS(numLeds), P_START(start), P_END(end),
-      P_DIRECTION(direction),
+      _NUM_LEDS(numLeds), _START(start), _END(end),
+      _DIRECTION(direction),
       _ini_speed(0), _tg_speed(PC_POWER_ON_UPDATE_INT),
       _tracker(0), _levelTracker(0),
       _bootState(false),
@@ -46,17 +46,7 @@ PowerCell::PowerCell(Adafruit_NeoPixel *strip, const uint8_t *numLeds, const uin
       _battRed(0), _battGreen(0), _battBlue(POWERCELL_BLUE),
       _battLevel(100), _battType(0)
 {
-    _ini_r = new uint8_t[*P_NUMLEDS];
-    _ini_g = new uint8_t[*P_NUMLEDS];
-    _ini_b = new uint8_t[*P_NUMLEDS];
     _updateSpeed = PC_POWER_ON_UPDATE_INT;
-}
-
-PowerCell::~PowerCell()
-{
-    delete[] _ini_r;
-    delete[] _ini_g;
-    delete[] _ini_b;
 }
 
 void PowerCell::begin(uint8_t batt_level, uint8_t battType)
@@ -69,22 +59,21 @@ void PowerCell::begin(uint8_t batt_level, uint8_t battType)
 
 void PowerCell::clear()
 {
-    _clearSomePixels(*P_START, *P_END);
+    _clearSomePixels(_START, _END);
 }
 
 bool PowerCell::update(uint8_t batt_level) { return update(millis(), batt_level); }
 
-bool PowerCell::update(uint32_t syncCurrentTime, uint8_t batt_level)
+bool PowerCell::update(uint32_t now, uint8_t batt_level)
 {
-    _currentTime = syncCurrentTime;
+    _now = now;
 
     _battLevel = batt_level;
 
     if (!_updateRequired)
         return false;
 
-    _strip->show();
-    // Reset update tracker
+    // The core transmits this strip once after the engine reports it dirty.
     _updateRequired = false;
     return true;
 }
@@ -108,34 +97,37 @@ bool PowerCell::boot()
         {
             _bootState = true;
             _updateSpeed = PC_POWER_ON_UPDATE_INT;
-            rampToIdleInit(_updateSpeed, 0);
+            initSpeedRamp(_updateSpeed, 0);
         }
     }
     else
     {
         // boot sequence done, go to regular animation,
         _updateSpeed = PC_POWER_ON_UPDATE_INT;
-        rampToIdle();
+        updateSpeedRamp();
     }
     return _bootState;
 }
 
-void PowerCell::rampToIdleInit(uint16_t tg_speed, uint16_t rampTime)
+void PowerCell::initSpeedRamp(uint16_t targetSpeed, uint16_t rampTime)
 {
-    _iniTime = _currentTime;
+    _iniTime = _now;
     _rampTime = rampTime;
 
-    _tg_speed = constrain(tg_speed, 5, PC_POWER_ON_UPDATE_INT);
+    _tg_speed = constrain(targetSpeed, 5, PC_POWER_ON_UPDATE_INT);
     _ini_speed = _updateSpeed;
 
     _bootState = true;
 
-    rampToIdle();
+    updateSpeedRamp();
 }
 
-void PowerCell::rampToIdle()
+void PowerCell::updateSpeedRamp()
 {
-    _updateSpeed = _rampParameter(_iniTime, _rampTime, _ini_speed, _tg_speed, PC_FIRING_MAX_UPDATE_INT);
+    // Once the requested speed has been reached there is no ramp left to
+    // calculate. The animation itself must continue updating below.
+    if (_updateSpeed != _tg_speed)
+        _updateSpeed = _rampParameter(_iniTime, _rampTime, _ini_speed, _tg_speed, PC_FIRING_MAX_UPDATE_INT);
 
     // If fill up sequence done, reset sequence
     if (_fillUp(false))
@@ -163,22 +155,22 @@ void PowerCell::poweredDownInit(uint16_t flashInterval)
     _flashInterval = flashInterval;
 
     clear();
-    _prevUpdate = _currentTime;
+    _prevUpdate = _now;
     _pulse = false;
 }
 
 void PowerCell::poweredDown()
 // All bar graph pixels are OFF execpt pixels one blinking
 {
-    if (_currentTime - _prevUpdate >= _flashInterval)
+    if (_now - _prevUpdate >= _flashInterval)
     {
-        _prevUpdate = _currentTime;
+        _prevUpdate = _now;
 
         _pulse = false;
     }
 
     // Turn off LED after short flash
-    if (_currentTime - _prevUpdate >= _flashInterval - 50)
+    if (_now - _prevUpdate >= _flashInterval - 50)
     {
         // clear();
         _pulse = true;
@@ -192,50 +184,50 @@ void PowerCell::lowBattInit(uint16_t blinkInterval)
 {
 
     clear();
-    _prevUpdate = _currentTime;
+    _prevUpdate = _now;
     _pulse = false;
     _flashInterval = blinkInterval;
 }
 
 void PowerCell::lowBatt()
 {
-    if (_currentTime - _prevUpdate >= _flashInterval)
+    if (_now - _prevUpdate >= _flashInterval)
     {
         // Boot sequence not done
-        _prevUpdate = _currentTime;
+        _prevUpdate = _now;
 
         _pulse = !_pulse;
     }
 
-    _PwrCellSetColor(*P_START, _pulse * 125, 0, 0);
+    _PwrCellSetColor(_START, _pulse * 125, 0, 0);
 }
 
 bool PowerCell::_fallingPixelStackUp(uint16_t duration, bool initialize)
 {
     if (initialize)
     {
-        _tracker = *P_NUMLEDS;
+        _tracker = _NUM_LEDS;
         _levelTracker = 0;
         _rampTime = duration;
-        uint16_t totalSteps = 1 + (*P_NUMLEDS + 1) * (*P_NUMLEDS + 2) / 2;
+        uint16_t totalSteps = 1 + (_NUM_LEDS + 1) * (_NUM_LEDS + 2) / 2;
         _updateSpeed = max(5, duration / totalSteps);
 
-        _setColorAll(*P_START, *P_END, 0, 0, 0);
+        _setColorAll(_START, _END, 0, 0, 0);
         _getBattLevelColors();
         return false;
     }
 
-    if (_levelTracker > *P_NUMLEDS)
+    if (_levelTracker > _NUM_LEDS)
     {
         return true;
     }
 
-    if (_currentTime - _prevUpdate >= _updateSpeed)
+    if (_now - _prevUpdate >= _updateSpeed)
     {
         // Boot sequence not done
-        _prevUpdate = _currentTime;
+        _prevUpdate = _now;
 
-        for (int8_t i = 0; i < *P_NUMLEDS; i++)
+        for (int8_t i = 0; i < _NUM_LEDS; i++)
         {
             if (i < _levelTracker || i == _tracker)
             {
@@ -250,24 +242,26 @@ bool PowerCell::_fallingPixelStackUp(uint16_t duration, bool initialize)
         if (_tracker == _levelTracker)
         {
             _levelTracker++;
-            _tracker = *P_NUMLEDS;
+            _tracker = _NUM_LEDS;
         }
         return false;
     }
+
+    return false;
 }
 
 bool PowerCell::_risingPixelStackDown(uint16_t duration, bool initialize)
 {
     if (initialize)
     {
-        _tracker = *P_NUMLEDS;
-        _levelTracker = *P_NUMLEDS;
+        _tracker = _NUM_LEDS;
+        _levelTracker = _NUM_LEDS;
         _rampTime = duration;
-        uint16_t totalSteps = 1 + (*P_NUMLEDS + 1) * (*P_NUMLEDS + 2) / 2;
+        uint16_t totalSteps = 1 + (_NUM_LEDS + 1) * (_NUM_LEDS + 2) / 2;
         _updateSpeed = max(5, duration / totalSteps);
 
         _getBattLevelColors();
-        _setColorAll(*P_START, *P_END, _battRed, _battGreen, _battBlue);
+        _setColorAll(_START, _END, _battRed, _battGreen, _battBlue);
 
         return false;
     }
@@ -277,12 +271,12 @@ bool PowerCell::_risingPixelStackDown(uint16_t duration, bool initialize)
         return true;
     }
 
-    if (_currentTime - _prevUpdate >= _updateSpeed)
+    if (_now - _prevUpdate >= _updateSpeed)
     {
         // Boot sequence not done
-        _prevUpdate = _currentTime;
+        _prevUpdate = _now;
 
-        for (int8_t i = 0; i < *P_NUMLEDS; i++)
+        for (int8_t i = 0; i < _NUM_LEDS; i++)
         {
             if (i < _levelTracker || i == _tracker)
             {
@@ -294,13 +288,15 @@ bool PowerCell::_risingPixelStackDown(uint16_t duration, bool initialize)
             }
         }
         _tracker++;
-        if (_tracker > *P_NUMLEDS)
+        if (_tracker > _NUM_LEDS)
         {
             _levelTracker--;
             _tracker = _levelTracker;
         }
         return false;
     }
+
+    return false;
 }
 
 bool PowerCell::_fillUp(bool initialize)
@@ -309,31 +305,31 @@ bool PowerCell::_fillUp(bool initialize)
     {
         _getBattLevelColors();
         _levelTracker = 0;
-        _setColorAll(*P_START, *P_END, 0, 0, 0);
+        _setColorAll(_START, _END, 0, 0, 0);
         return false;
     }
 
-    if (_levelTracker >= *P_NUMLEDS)
+    if (_levelTracker >= _NUM_LEDS)
     {
         _getBattLevelColors();
         return true;
     }
 
     // Check if the time for the next update has arrived
-    if (_currentTime - _prevUpdate >= _updateSpeed)
+    if (_now - _prevUpdate >= _updateSpeed)
     {
-        _prevUpdate = _currentTime;
+        _prevUpdate = _now;
 
         // Update only the next pixel in line
-        if (_levelTracker < *P_NUMLEDS)
+        if (_levelTracker < _NUM_LEDS)
         {
             // Turn on the next pixel (falling down)
             _PwrCellSetColor(_levelTracker, _battRed, _battGreen, _battBlue);
         }
-        else if (_levelTracker == *P_NUMLEDS)
+        else if (_levelTracker == _NUM_LEDS)
         {
             // Reset the last pixel after it reaches the bottom
-            _PwrCellSetColor(*P_NUMLEDS - 1, 0, 0, 0); // Turn off the pixel
+            _PwrCellSetColor(_NUM_LEDS - 1, 0, 0, 0); // Turn off the pixel
         }
 
         // Increment or reset the levelTracker
@@ -346,7 +342,7 @@ void PowerCell::_PwrCellSetColor(uint16_t pixel, uint8_t red, uint8_t green, uin
 {
 
     // Adjust the pixel index based on the direction
-    uint8_t adjustedPixel = (!*P_DIRECTION) ? (*P_START + pixel) : (*P_END - pixel);
+    uint8_t adjustedPixel = (!_DIRECTION) ? (_START + pixel) : (_END - pixel);
 
     // If the color is different, set the new color
     _setColor(adjustedPixel, red, green, blue);
@@ -395,21 +391,27 @@ void PowerCell::_getBattLevelColors()
     // Between 75% and 50% - Blue to Yellow (Reduced White)
     if (_battLevel >= startYellowPercent)
     {
-        float mix = _mapFloat(_battLevel, alwaysBluePercent, startYellowPercent, 0.0f, 1.0f);
+        const uint8_t step = alwaysBluePercent - _battLevel;
+        const uint8_t yellowRed = POWERCELL_BLUE * 4U / 5U;
+        const uint16_t risingRed = (uint16_t)step * 42U;
 
-        _battRed = (uint8_t)(min(1.5f * mix * POWERCELL_BLUE / 1.25f, POWERCELL_BLUE / 1.25f)); // Red increases to max 120
-        _battGreen = (uint8_t)(mix * POWERCELL_BLUE / 5.0f);                                    // Green to max 220 for yellow
-        _battBlue = (uint8_t)(max(0, (1.0f - 1.5f * mix)) * POWERCELL_BLUE);                    // Blue fades out, faster then other color
+        _battRed = min(risingRed, (uint16_t)yellowRed);
+        _battGreen = step * 7U;
+        _battBlue = (step < 4U)
+                        ? ((uint16_t)(10U - 3U * step) * POWERCELL_BLUE) / 10U
+                        : 0U;
         return;
     }
 
     // Between 50% and 25% - Yellow to Red (Smooth Transition)
     if (_battLevel >= alwaysRedPercent)
     {
-        float mix = _mapFloat(_battLevel, startYellowPercent, alwaysRedPercent, 0.0f, 1.0f);
+        const uint8_t step = startYellowPercent - _battLevel;
+        const uint8_t yellowRed = POWERCELL_BLUE * 4U / 5U;
+        const uint8_t yellowGreen = POWERCELL_BLUE / 5U;
 
-        _battRed = (uint8_t)(_mapFloat(mix, 0.0f, 1.0f, POWERCELL_BLUE / 1.25f, POWERCELL_BLUE)); // Red smoothly rises to 255
-        _battGreen = (uint8_t)(_mapFloat(mix, 0.0f, 1.0f, POWERCELL_BLUE / 5.0f, 0));             // Green smoothly falls to 0
+        _battRed = yellowRed + step * 7U;
+        _battGreen = yellowGreen - step * 7U;
         _battBlue = 0;
         return;
     }
@@ -418,9 +420,4 @@ void PowerCell::_getBattLevelColors()
     _battRed = 255;
     _battGreen = 0;
     _battBlue = 0;
-}
-
-float PowerCell::_mapFloat(float x, float in_min, float in_max, float out_min, float out_max)
-{
-    return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }

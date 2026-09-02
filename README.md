@@ -10,8 +10,8 @@ Work in progress :
 - Polyphonic capability : dream board with polyphonic capability and embedded SDCard reader, player, amplifier, power circuits.
   
 ---
-**2026-08-27 UPDATE**
-- Firmware release v1.1.0.
+**2026-09-02 UPDATE**
+- Firmware release v2.0.0.
 - New schematic drawing with SBK PropCore One, BarDrive MAX28 and BarMeter Sx28 PCBs.
   
 ---
@@ -36,11 +36,11 @@ Power Cell battery-pack options:
 
 ## Current Firmware Release
 
-**Version 1.1.0**
+**Version 2.0.0**
 
-This release introduces a revised prop workflow, broader hardware support, optional Power Cell displays, and several fixes and internal improvements.
+This release introduces the new 2.0 engine architecture and migrates the latest firmware, configuration, and hardware definitions into the repository.
 
-### Highlights in v1.1.0
+### Highlights in v2.0.0
 
 - Revised power-up, Cyclotron, firing, overheat, venting, and shutdown sequences.
 - Predefined pin mappings for several SBK controller boards, plus a custom-pin option.
@@ -52,7 +52,9 @@ This release introduces a revised prop workflow, broader hardware support, optio
 - Optional battery monitoring and low-battery shutdown on boards with a battery-sense input.
 - Configurable switch logic, animation directions, segment mappings, potentiometers, illuminated fire button, and serial debugging.
 - Support for DFPlayer communication through SoftwareSerial or the Nano Every hardware `Serial1` interface, depending on the selected board.
-- Modularized bar meter drivers and animation engines.
+- Reusable Cyclotron and Power Cell animation schemes.
+- External `SBK_Button`, `SBK_BarDrive`, `SBK_MAX72xx`, and `SBK_HT16K33` libraries replace the legacy bundled switch and bar-meter drivers.
+- A lightweight bundled player engine replaces the external DFPlayer library dependency.
 - Smoke support remains optional and experimental; it is disabled by default.
 
 ## Overview
@@ -132,14 +134,14 @@ PCBs are produced in small batches and on demand. For availability, contact [Sma
 ### 2. Install the sketch and bundled engine files
 
 - Copy the `SBK_WRISTBLASTER_CORE` folder into your Arduino sketchbook.
-- Move the bundled `SBK_WristBlaster_lib` folder into the Arduino sketchbook `libraries` folder.
+- Move the bundled `SBK_WristBlaster_lib_V2_0_0` folder into the Arduino sketchbook `libraries` folder.
 
 The final structure should resemble:
 
 ```text
 Arduino/
 ├── libraries/
-│   └── SBK_WristBlaster_lib/
+│   └── SBK_WristBlaster_lib_V2_0_0/
 └── SBK_WRISTBLASTER_CORE/
     ├── SBK_WRISTBLASTER_CORE.ino
     ├── SBK_WRISTBLASTER_CONFIG.h
@@ -151,7 +153,9 @@ Arduino/
 Using the Arduino IDE Library Manager, install:
 
 - **Adafruit NeoPixel**
-- **DFPlayerMini_Fast**
+- **SBK Button**
+- **SBK BarDrive**
+- **SBK MAX72xx** or **SBK HT16K33**, according to the selected bar-meter driver
 
 Install all dependencies requested by the Arduino IDE.
 

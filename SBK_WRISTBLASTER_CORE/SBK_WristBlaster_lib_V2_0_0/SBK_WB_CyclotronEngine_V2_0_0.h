@@ -5,7 +5,7 @@
  *  @author      Samuel Barabé  
  *  @copyright   Copyright (c) 2025-2026 Samuel Barabé  
  *  @license     MIT License (code)  
- *  @version     1.1.0
+ *  @version     2.0.0
  *  @link        https://github.com/sbarabe/SBK_WRISTBLASTER/tree/main/SBK_WRISTBLASTER_CORE
  *
  *  For more information, visit the project page: <https://github.com/sbarabe/SBK_WRISTBLASTER/tree/main/SBK_WRISTBLASTER_CORE>.
@@ -19,7 +19,7 @@
 #pragma once
 
 #include <Arduino.h>
-#include "SBK_WB_LedsStripBaseEngine_V1_1_0.h"
+#include "SBK_WB_LedsStripBaseEngine_V2_0_0.h"
 
 /* GENERAL HELPERS */
 #ifndef DISABLE
@@ -50,19 +50,18 @@ const CycParams CYC_BURST_WARNING = {8000, 100, 255};
 class Cyclotron : public LedsStrip
 {
 public:
-    Cyclotron(Adafruit_NeoPixel *strip,const uint8_t *numLed, const uint8_t *start, const uint8_t *end,
-              const uint8_t *ring1st, const uint8_t *ringLast, const uint8_t *center,
-              const bool *direction);
-    ~Cyclotron();
+    Cyclotron(Adafruit_NeoPixel *strip, const uint8_t numLed, const uint8_t start, const uint8_t end,
+              const uint8_t ring1st, const uint8_t ringLast, const uint8_t center,
+              const bool direction);
     void begin();
     void clear();
     void rampInit(const CycParams &tg_params, uint16_t rampTime);
     void ramp();
 
 private:
-    const uint8_t *P_NUMLEDS, *P_START, *P_END;
-    const uint8_t *P_RING_1ST, *P_RING_LAST, *P_CENTER;
-    const bool *P_DIRECTION;
+    const uint8_t _NUM_LEDS, _START, _END;
+    const uint8_t _RING_FIRST, _RING_LAST, _CENTER;
+    const bool _DIRECTION;
     uint16_t _cycle_mHz;
     uint8_t _minBrightness;
     uint8_t _maxBrightness;
@@ -74,7 +73,7 @@ private:
     uint8_t _tg_maxBrightness;
 
 
-    void _CycSetColor(uint16_t pixel, uint8_t red, uint8_t green, uint8_t blue);
+    void _CycSetColor(uint8_t pixel, uint8_t red, uint8_t green, uint8_t blue);
     void _rotation(uint16_t cycle_mHz, uint8_t minBrightness, uint8_t maxBrightness);
 };
 

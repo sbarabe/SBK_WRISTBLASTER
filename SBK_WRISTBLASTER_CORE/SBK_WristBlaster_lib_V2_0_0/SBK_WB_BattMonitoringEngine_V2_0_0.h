@@ -5,7 +5,7 @@
  *  @author      Samuel Barabé
  *  @copyright   Copyright (c) 2025-2026 Samuel Barabé
  *  @license     MIT License (code)
- *  @version     1.1.0
+ *  @version     2.0.0
  *  @link        https://github.com/sbarabe/SBK_WRISTBLASTER/tree/main/SBK_WRISTBLASTER_CORE
  *
  *  For more information, visit the project page: <https://github.com/sbarabe/SBK_WRISTBLASTER/tree/main/SBK_WRISTBLASTER_CORE>.
@@ -42,9 +42,7 @@ enum BatteryType
     NIMH_9S
 };
 
-// Battery Voltage Ranges in mVolts
-const uint16_t BATTERY_MIN_VOLTAGE[] = {0, 6600, 9900, 5500, 6600, 7700, 8800, 9900};
-const uint16_t BATTERY_MAX_VOLTAGE[] = {0, 8400, 12600, 7500, 9000, 10500, 12000, 13500};
+
 
 // Some constants values for animations
 // Voltage Divider Constants
@@ -59,7 +57,8 @@ public:
     BattMoniroting(const uint8_t batt_pin = 255,
                    const bool power_monitoring = DISABLE,
                    BatteryType batt_type = NONE,
-                   const bool low_cutoff = DISABLE, const float scaling_factor = 1.0);
+                   const bool low_cutoff = DISABLE,
+                   const uint16_t scaling_factor_per_mille = 1000);
 
     void begin();
     bool isBattTooLow();
@@ -72,14 +71,16 @@ protected:
     const bool _POWER_MONITORING;
     BatteryType _selectedBattery;
     const bool _LOW_CUT_OFF;
-    const float _SCALING_FACTOR;
+    const uint16_t _SCALING_FACTOR_PER_MILLE;
     uint16_t _batteryVoltage;
     uint8_t _batteryPercent;
     bool _lowBatt;
-    static const uint8_t _NUM_SAMPLES = 20;
+    static const uint8_t _NUM_SAMPLES = 8;
     uint16_t _samples[_NUM_SAMPLES];
     uint32_t _sum;
     uint8_t _index;
+
+    uint16_t _readScaledVoltage();
     uint8_t _getBattSoC(uint16_t battmV);
     uint8_t _NiMhSoCperCell(uint16_t mV);
     uint8_t _LiPoSoCperCell(uint16_t mV);

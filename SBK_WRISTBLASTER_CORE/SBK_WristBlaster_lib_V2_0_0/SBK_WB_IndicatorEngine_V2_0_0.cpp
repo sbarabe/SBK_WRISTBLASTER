@@ -5,7 +5,7 @@
  *  @author      Samuel Barabé  
  *  @copyright   Copyright (c) 2025-2026 Samuel Barabé  
  *  @license     MIT License (code)  
- *  @version     1.1.0
+ *  @version     2.0.0
  *  @link        https://github.com/sbarabe/SBK_WRISTBLASTER/tree/main/SBK_WRISTBLASTER_CORE
  *
  *  For more information, visit the project page: <https://github.com/sbarabe/SBK_WRISTBLASTER/tree/main/SBK_WRISTBLASTER_CORE>.
@@ -16,42 +16,29 @@
  *  including but not limited to the warranties of merchantability or fitness for a particular purpose.
  */
 
-#include "SBK_WB_IndicatorEngine_V1_1_0.h"
+#include "SBK_WB_IndicatorEngine_V2_0_0.h"
 
-// #define DEBUG_TO_SERIAL
-#ifdef DEBUG_TO_SERIAL
-#define DEBUG_PRINTLN(x) Serial.println(x)
-#define DEBUG_PRINT(x) Serial.print(x)
-#else
-#define DEBUG_PRINTLN(x)
-#define DEBUG_PRINT(x)
-#endif
-
-
-Indicator::Indicator(Adafruit_NeoPixel *strip, const uint8_t *pixel, const char *name)
+Indicator::Indicator(Adafruit_NeoPixel *strip, uint8_t pixel)
     : LedsStrip(strip),
-      P_PIXEL(pixel),
+      _PIXEL(pixel),
       _tg_r(0), _ini_r(0),
       _tg_g(0), _ini_g(0),
       _tg_b(0), _ini_b(0),
-      _tg_brightness(25),
       _pulse(false),
+      _prevBlink(0),
       _blinkInt(0), _wasBlinking(false),
       _ini_blinkInt(0), _tg_blinkInt(0)
 {
-    _NAME = name;
 }
 
 void Indicator::begin()
 {
     clear();
-    DEBUG_PRINTLN(String(_NAME) + " DEBUG ON");
 }
 
 void Indicator::clear()
 {
-    _clearPixel(*P_PIXEL);
-    _tg_brightness = 100;
+    _clearPixel(_PIXEL);
     _rampTime = 0;
     _pulse = false;
     _wasBlinking = false;
@@ -69,7 +56,7 @@ void Indicator::initParam(const uint8_t color[3], uint8_t tg_brightness,
 }
 
 void Indicator::initParam(const uint8_t color[3], uint8_t tg_brightness,
-                          uint16_t tg_blinkInt,
+                          uint16_t /* solidMode */,
                           uint16_t rampTime)
 {
     initParam(color, tg_brightness, 0, rampTime, NO_SYNC, false); // No blink, apply ramp
@@ -87,37 +74,37 @@ void Indicator::initParam(const uint8_t color[3], uint8_t tg_brightness,
                           uint32_t syncPrevBlink = 0, bool syncPulse = false)
 {
     // Reset blinking pulse only if it was not blinking in this previous state
-    // to esure steady blinking between stage
+    // to ensure steady blinking between stages
     if (!_wasBlinking)
         _pulse = false; // Enforce an off pulse at new blinking start
 
     // Extract the individual color components from the packed value
     uint8_t currentRed, currentGreen, currentBlue;
-    _getCurrentColor(*P_PIXEL, currentRed, currentGreen, currentBlue);
+    _getCurrentColor(_PIXEL, currentRed, currentGreen, currentBlue);
 
     // Get initial parameters
-    _iniTime = _currentTime;
+    _iniTime = _now;
     _ini_r = currentRed;
     _ini_g = currentGreen;
     _ini_b = currentBlue;
     _ini_blinkInt = _blinkInt;
 
-    // Check boundaries
-    _rampTime = max(0, rampTime);
-    _tg_brightness = constrain(tg_brightness, 0, 100);
-    _tg_blinkInt = max(0, tg_blinkInt);
-    _tg_r = constrain(color[0], 0, 255);
-    _tg_g = constrain(color[1], 0, 255);
-    _tg_b = constrain(color[2], 0, 255);
+    // Apply targets
+    _rampTime = rampTime;
+    const uint8_t brightnessPercent = min(tg_brightness, static_cast<uint8_t>(100));
+    _tg_blinkInt = tg_blinkInt;
+    _tg_r = color[0];
+    _tg_g = color[1];
+    _tg_b = color[2];
 
     // Correct targets according to brightness
-    _tg_r = (_tg_r * _tg_brightness) / 100;
-    _tg_g = (_tg_g * _tg_brightness) / 100;
-    _tg_b = (_tg_b * _tg_brightness) / 100;
+    _tg_r = (_tg_r * brightnessPercent) / 100;
+    _tg_g = (_tg_g * brightnessPercent) / 100;
+    _tg_b = (_tg_b * brightnessPercent) / 100;
 
     if (_rampTime == 0)
     {
-        _setColor(*P_PIXEL, _tg_r, _tg_g, _tg_b);
+        _setColor(_PIXEL, _tg_r, _tg_g, _tg_b);
         _blinkInt = _tg_blinkInt;
     }
 
@@ -128,21 +115,11 @@ void Indicator::initParam(const uint8_t color[3], uint8_t tg_brightness,
         _pulse = syncPulse; // Synchronize pulse state
     }
 
-    // if (_NAME == "IND_SlBlw")
-    // {
-    // DEBUG_PRINTLN("Indicator " + String(_NAME) + "  animation init:");
-    // DEBUG_PRINTLN("_iniTime " + String(_iniTime) + "  _ini_blinkInt " + String(_ini_blinkInt) + "  _rampTime " + String(_rampTime));
-    // DEBUG_PRINTLN("_tg_brightness " + String(_tg_brightness) + "  tg_blinkInt " + String(tg_blinkInt));
-    // DEBUG_PRINTLN("_tg_r " + String(_tg_r) + "  _ini_r " + String(_ini_r) + "  currentRed " + String(currentRed));
-    // DEBUG_PRINTLN("_tg_g " + String(_tg_g) + "  _ini_g " + String(_ini_g) + "  currentGreen " + String(currentGreen));
-    // DEBUG_PRINTLN("_tg_b " + String(_tg_b) + "  _ini_b " + String(_ini_b) + "  currentBlue " + String(currentBlue));
-    // DEBUG_PRINTLN();
-    // }
 }
 
 void Indicator::solid()
 {
-    _setColor(*P_PIXEL, _tg_r, _tg_g, _tg_b);
+    _setColor(_PIXEL, _tg_r, _tg_g, _tg_b);
 
     // Update blinking status
     _wasBlinking = false;
@@ -153,7 +130,7 @@ void Indicator::blink(bool enableBlinkIntRamp)
     // there is no blinking interval,
     if (_tg_blinkInt == 0)
     {
-        _setColor(*P_PIXEL, _tg_r, _tg_g, _tg_b);
+        _setColor(_PIXEL, _tg_r, _tg_g, _tg_b);
         // Update blinking status
         _wasBlinking = false;
         return;
@@ -167,30 +144,25 @@ void Indicator::blink(bool enableBlinkIntRamp)
         _blinkInt = (enableBlinkIntRamp) ? _rampParameter(_iniTime, _rampTime, _ini_blinkInt, _tg_blinkInt, _updateSpeed) : _tg_blinkInt;
 
     // Toggle blinking pulse
-    if (_currentTime - _prevBlink >= _blinkInt)
+    if (_now - _prevBlink >= _blinkInt)
     {
         // DEBUG_PRINTLN("_blinkInt " + String(_blinkInt) + "  _pulse " + String(_pulse));
 
-        _prevBlink = _currentTime;
+        _prevBlink = _now;
         _pulse = !_pulse;
 
-        _setColor(*P_PIXEL, _tg_r * _pulse, _tg_g * _pulse, _tg_b * _pulse);
+        _setColor(_PIXEL, _tg_r * _pulse, _tg_g * _pulse, _tg_b * _pulse);
     }
 }
 
 bool Indicator::ramp()
 {
-    // if (_NAME == "IND_SlBlw")
-    // {
-    //    DEBUG_PRINTLN(String(_NAME)+"currentRed " + String(currentRed) + "  _ini_g " + String(currentGreen) + "  currentBlue " + String(currentBlue));
-    // }
-
     // Update blinking status
     _wasBlinking = false;
 
     // Extract the individual color components from the packed value
     uint8_t currentRed, currentGreen, currentBlue;
-    _getCurrentColor(*P_PIXEL, currentRed, currentGreen, currentBlue);
+    _getCurrentColor(_PIXEL, currentRed, currentGreen, currentBlue);
 
     // Check if ramp is done
     if ((currentRed == _tg_r) && (currentGreen == _tg_g) && (currentBlue == _tg_b))
@@ -198,16 +170,16 @@ bool Indicator::ramp()
 
     if (_rampTime == 0)
     {
-        _setColor(*P_PIXEL, _tg_r, _tg_g, _tg_b);
+        _setColor(_PIXEL, _tg_r, _tg_g, _tg_b);
         return true;
     }
 
     // Ramp not done yet - Update color tracker
-    if (_currentTime - _prevUpdate >= _updateSpeed)
+    if (_now - _prevUpdate >= _updateSpeed)
     {
-        _prevUpdate = _currentTime;
+        _prevUpdate = _now;
 
-        _setColor(*P_PIXEL, _rampParameter(_iniTime, _rampTime, _ini_r, _tg_r, _updateSpeed),
+        _setColor(_PIXEL, _rampParameter(_iniTime, _rampTime, _ini_r, _tg_r, _updateSpeed),
                   _rampParameter(_iniTime, _rampTime, _ini_g, _tg_g, _updateSpeed),
                   _rampParameter(_iniTime, _rampTime, _ini_b, _tg_b, _updateSpeed));
     }
@@ -217,28 +189,24 @@ bool Indicator::ramp()
 void Indicator::flash(uint16_t flashInterval)
 {
     // Turn on LED
-    if (_currentTime - _prevUpdate >= flashInterval)
+    if (_now - _prevUpdate >= flashInterval)
     {
-        _prevUpdate = _currentTime;
-
-        // _setColor((_tg_r * _tg_brightness) / 100,
-        //           (_tg_g * _tg_brightness) / 100,
-        //          (_tg_b * _tg_brightness) / 100);
+        _prevUpdate = _now;
 
         _pulse = false;
     }
 
     // Turn off LED after short flash
-    if (_currentTime - _prevUpdate >= flashInterval - 50)
+    if (_now - _prevUpdate >= flashInterval - 50)
     {
         // clear();
         _pulse = true;
     }
 
-    _setColor(*P_PIXEL,
-              _pulse * (_tg_r * _tg_brightness) / 100,
-              _pulse * (_tg_g * _tg_brightness) / 100,
-              _pulse * (_tg_b * _tg_brightness) / 100);
+    _setColor(_PIXEL,
+              _pulse * _tg_r,
+              _pulse * _tg_g,
+              _pulse * _tg_b);
 }
 
 uint32_t Indicator::getPrevBlink() const { return _prevBlink; }
@@ -247,10 +215,10 @@ bool Indicator::getPulse() const { return _pulse; }
 
 ////////////////////////////////////////////////////////////////////
 
-SingleColorIndicator::SingleColorIndicator(const uint8_t indicator_pin, const bool enable, const char *name)
+SingleColorIndicator::SingleColorIndicator(uint8_t indicator_pin, bool enable)
     : _PIN(indicator_pin),
       _ENABLE(enable),
-      _currentTime(0),
+      _now(0),
       _state(false),
       _update(true),
       _prevUpdate(0),
@@ -258,7 +226,6 @@ SingleColorIndicator::SingleColorIndicator(const uint8_t indicator_pin, const bo
       _blinkInt(500),
       _wasBlinking(false)
 {
-    _NAME = name;
 }
 
 void SingleColorIndicator::begin()
@@ -267,7 +234,6 @@ void SingleColorIndicator::begin()
     _state = false;
     _write(_state);
 
-    DEBUG_PRINTLN(_NAME + String(" DEBUG ON"));
 }
 
 bool SingleColorIndicator::update()
@@ -275,9 +241,9 @@ bool SingleColorIndicator::update()
     return update(millis());
 }
 
-bool SingleColorIndicator::update(uint32_t syncCurrentTime)
+bool SingleColorIndicator::update(uint32_t now)
 {
-    _currentTime = syncCurrentTime;
+    _now = now;
 
     if (_update)
     {
@@ -338,10 +304,10 @@ void SingleColorIndicator::blinkInit(uint16_t blinkInterval) // flashing
     if (!_ENABLE)
         return;
 
-    _blinkInt = max(0, blinkInterval);
+    _blinkInt = blinkInterval;
 
     // Reset blinking pulse only if it was not blinking in this previous state
-    // to esure steady blinking between stage
+    // to ensure steady blinking between stages
     if (!_wasBlinking)
         _pulse = false; // Enforce an off pulse at new blinking start
 
@@ -359,9 +325,9 @@ void SingleColorIndicator::blink() // flashing
         return;
     }
 
-    if ((_currentTime - _prevUpdate) >= _blinkInt)
+    if ((_now - _prevUpdate) >= _blinkInt)
     {
-        _prevUpdate = _currentTime;
+        _prevUpdate = _now;
         _pulse ? _write(true) : _write(false);
         _pulse = !_pulse;
     }

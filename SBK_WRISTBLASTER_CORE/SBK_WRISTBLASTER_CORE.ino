@@ -2,10 +2,10 @@
  * @file        SBK_WRISTBLASTER_CORE.ino
  * @brief       Lights and sound control code for the SBK Wrist Blaster replica or other props.
  *
- * @author      Samuel Barabé
- * @copyright   Copyright (c) 2025-2026 Samuel Barabé
+ * @author      Samuel Barabe
+ * @copyright   Copyright (c) 2025-2026 Samuel Barabe
  * @license     MIT License
- * @version     1.1.0
+ * @version     2.0.0
  * @link        https://github.com/sbarabe/SBK_WRISTBLASTER
  *
  * @details
@@ -43,6 +43,15 @@
  * The core is modular and object-oriented, with components organized in the
  * `SBK_WristBlaster_lib` folder.
  *
+ * Library dependencies:
+ * - Adafruit NeoPixel
+ * - SBK_Button
+ * - SBK_BarDrive
+ * - SBK_MAX72xx or SBK_HT16K33, depending on the selected bar-meter driver
+ *
+ * Audio control uses the built-in SBK_WB_PlayerEngine and requires no external
+ * DFPlayer library.
+ *
  * Supported features:
  * - DFPlayer Mini sound board
  * - LED bar meter (28 segments) via MAX72xx or HT16K33 drivers
@@ -52,52 +61,70 @@
  * - Party mode, burst fire mode, and smoke toggle
  *
  * Important Notes:
- * - Audio timing is based on predefined track durations (not BUSY pin).
- * - Incorrect durations may cause animation/audio desync.
+ * - Predefined track durations provide the timeline for state transitions,
+ *   animations, and effects, as well as audio playback timing when the BUSY pin is not used.
+ * - Incorrect durations may desynchronize animations and effects from the audio track.
  * - Advanced users may customize animations or state transitions in the core engine.
  *
  * If you find this useful, please consider supporting development at:
  * https://github.com/sbarabe/SBK_WRISTBLASTER
  *
  * @see https://opensource.org/licenses/MIT
- * @see https://github.com/PowerBroker2/DFPlayerMini_Fast
+ * DFPlayer Mini commands are sent by the lightweight SBK_WB_PlayerEngine.
  * @see https://github.com/adafruit/Adafruit_NeoPixel
  **/
 
 #include <Arduino.h>
-#include <Wire.h> // Include the I2C library (required)
 #include "SBK_WRISTBLASTER_CONFIG.h"
 
 /*********************************************/
 /*      GENERAL definitions and helpers      */
 /*********************************************/
 // Helpers variables declarations and initial states :
-uint32_t currentTime = 0;               // To keep track in a loop
-BlasterState WBstate = STATE_POWER_OFF; // Initial wrist blaster state in the main loop
-BlasterState prevState = STATE_ZERO;    // State tracking for some sequences
-uint8_t stageFlag = 0;                  // stage flag to implement different state stages in main loop
-uint8_t prevStageFlag = 100;            // stage flag tracking
-uint32_t stateStartTime = 0;            // general time tracker for functions timers and delays
-int8_t playingTrack = -1;               // Record the actual track playing
-uint8_t heatLevel = 0;                  // Tracker for overheat
-uint32_t heatLevelPrevUpdate = 0;       // Tracker for overheat
-bool fireType = CAPTURE;                // 0 = Capture, 1 = Burst : help managing reboots and firing tails
-uint8_t battLevel = 100;                // Battery level variable for battery power monitoring option
+uint32_t now = 0;                            // To keep track in a loop
+BlasterState WBstate = STATE_POWER_OFF;      // Initial wrist blaster state in the main loop
+BlasterState prevState = STATE_ZERO;         // State tracking for some sequences
+bool stateInitialized = false;               // False until the current state is initialized
+bool prevStateInitialized = false;           // Previous value used by debug tracking
+uint32_t stateStartTime = 0;                 // general time tracker for functions timers and delays
+uint8_t heatLevel = 0;                       // Tracker for overheat
+uint32_t heatLevelPrevUpdate = 0;            // Tracker for overheat
+OverheatPhase overheatPhase = PHASE_WARNING; // Initial overheat phase
+bool phaseInitialized = false;               // False until the current phase is initialized
+uint32_t phaseStartTime = 0;                 // Shared phase start time tracker
+BurstPhase burstPhase = BURST_PHASE_FIRING;
+#ifndef CAPTURE
+constexpr bool CAPTURE = false;
+#endif
+#ifndef BURST
+constexpr bool BURST = true;
+#endif
+bool fireType = CAPTURE; // 0 = Capture, 1 = Burst : help managing reboots and firing tails
+uint8_t battLevel = 100; // Battery level variable for battery power monitoring option
 uint32_t prevBattReading = 0;
 // Helpers functions declarations, functions are defined after the main loop :
-uint8_t stateInitialization();                                      // Standard initialisation sequence for most state
-void clearAllLights();                                              // SHUTOFF all leds for wrist blaster and resets some trackers
-bool checkIfTrackDoneExit(BlasterState next_state);                 // check if a state track is done playing and go to next stage
-bool checkIfSwitchExit(bool switch_state, BlasterState next_state); // check if a switch action and go to next stage
-bool checkIfTimerExit(uint16_t time, BlasterState next_state);      // check if a timer is done and go to next stage
+bool stateInitialization();                                         // Standard initialisation sequence for most states
+void handleWristBlasterState();                                     // Execute the primary state-machine control flow
+bool checkIfTrackDoneExit(BlasterState next_state);                 // Change state when the current track timeline ends
+bool checkIfSwitchExit(bool switch_state, BlasterState next_state); // Change state when the supplied switch condition is true
+bool checkIfTimerExit(uint16_t time, BlasterState next_state);      // Change state when the current state timer expires
+void enterState(BlasterState next_state);                           // Prepare phase data and enter a new state
 void getLEDsSchemeForThisState();                                   // This function contains animations settings and calling for all states
-void getPowercellLEDsSchemeForThisState();                          // This function contains optional animation for POWERCELL if enabled
-void playThisStateTrack();                                          // play state track
-void playThisTrack(uint8_t track);
-;                                                 // Play specific track other then state track
-bool checkPlayModeForThisState();                 // check if play mode is correct for this state (looping / not looping)
-uint16_t getDuration();                           // Get actual state duration
-uint16_t getSpecificDuration(BlasterState state); // Get duration of a specific state
+void getIndicatorScheme();
+void getSlowBlowIndicatorScheme();
+void getTopWhiteIndicatorScheme();
+void getTopYellowIndicatorScheme();
+void getFrontOrangeIndicatorScheme();
+void getFireButtonIndicatorScheme();
+void getVentScheme();
+void getPanelBarMeterScheme();
+void getCyclotronScheme();
+void getFiringRodScheme();
+void getPowerCellScheme();                        // This function contains optional Power Cell animations
+void playThisStateTrack();                        // play state track
+void playThisTrack(uint8_t track);                // Play a specific track other than the state track
+uint16_t getDuration();                           // Get the usable animation/effect duration of the current state
+uint16_t getSpecificDuration(BlasterState state); // Get the usable animation/effect duration of a specific state
 void checkNextPreviousButton();                   // While in party mode, switch to previous/next song with fire button
 void heatLevelCooling();                          // Manage heat level
 void heatLevelRisingBurst();                      // Manage heat level
@@ -115,21 +142,38 @@ bool getPartyModeState();           // Helper to manage PBIntensify output as a 
 //  Bar meter helper variables for 28 segments bar meter:
 //  DRIVER type, animations DIRECTION and segments MAPPING should be defined in SBK_WRISTBLASTER_CONFIG.h file
 #ifdef PBM_MAX72XX
-#include "SBK_WB_MAX72xx_V1_1_0.h"
-
 #if defined(PCBM_MAX72XX_ON_PBM_CHAIN)
-#define PBM_MAX72XX_DEVICE_COUNT 2
+constexpr uint8_t PBM_MAX72XX_DEVICE_COUNT = 2;
 #else
-#define PBM_MAX72XX_DEVICE_COUNT 1
+constexpr uint8_t PBM_MAX72XX_DEVICE_COUNT = 1;
 #endif
 
-MAX72xx PBM_driver(PBM_DIN_PIN, PBM_CLK_PIN, PBM_LOAD_PIN, PBM_MAX72XX_DEVICE_COUNT);
-PanelBarMeter panelBarMeter(&PBM_SEG_NUMBER, &PBM_DIRECTION, &PBM_driver, PBM_DRIVER_ADDRESS, PBM_SEG_MAP);
-#elif defined(PBM_HT16K33)
-#include "SBK_WB_HT16K33_V1_1_0.h"
-HT16K33 PBM_driver;
-PanelBarMeter panelBarMeter(&PBM_SEG_NUMBER, &PBM_DIRECTION, &PBM_driver, PBM_DRIVER_ADDRESS, PBM_SEG_MAP);
+SBK_MAX72xxSoft PBM_driver(PBM_DIN_PIN, PBM_CLK_PIN, PBM_LOAD_PIN, PBM_MAX72XX_DEVICE_COUNT);
+#if defined(PBM_BL28_3005SK_MAPPING)
+SBK_BarDrive<SBK_MAX72xxSoft> panelBarMeter(&PBM_driver, PBM_BARDRIVE_DEVICE_INDEX,
+                                            MatrixPreset::BL28_3005SK,
+                                            static_cast<BarDirection>(PBM_DIRECTION));
+#else
+SBK_BarDrive<SBK_MAX72xxSoft> panelBarMeter(&PBM_driver, PBM_BARDRIVE_DEVICE_INDEX,
+                                            MatrixPreset::BL28_3005SA,
+                                            static_cast<BarDirection>(PBM_DIRECTION));
 #endif
+#elif defined(PBM_HT16K33)
+#if defined(PBM_BL28_3005SK_MAPPING)
+SBK_HT16K33 PBM_driver(1);
+SBK_BarDrive<SBK_HT16K33> panelBarMeter(&PBM_driver, PBM_BARDRIVE_DEVICE_INDEX,
+                                        MatrixPreset::BL28_3005SK,
+                                        static_cast<BarDirection>(PBM_DIRECTION));
+#else
+SBK_HT16K33 PBM_driver(1);
+SBK_BarDrive<SBK_HT16K33> panelBarMeter(&PBM_driver, PBM_BARDRIVE_DEVICE_INDEX,
+                                        MatrixPreset::BL28_3005SA,
+                                        static_cast<BarDirection>(PBM_DIRECTION));
+#endif
+#endif
+
+const uint8_t PANEL_MAX_PERCENT = 100;
+uint8_t panelHeatFloorPercent = 0;
 
 /***********************************************/
 /*               WS2812 LEDs strip             */
@@ -138,22 +182,22 @@ PanelBarMeter panelBarMeter(&PBM_SEG_NUMBER, &PBM_DIRECTION, &PBM_driver, PBM_DR
 // Define the main WS2812 LEDs strip for the wrist blaster. If the Power Cell LEDs are on the same strip,
 // the total number of LEDs includes both the blaster and the Power Cell LEDs.
 #if defined(POWERCELL_STRIP) && POWERCELL_ON_SAME_STRIP
-Adafruit_NeoPixel blasterLeds = Adafruit_NeoPixel(TOTAL_LEDS_NUMBER + POWERCELL_NUMLEDS, LEDS_STRIP1_PIN, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel blasterLeds = Adafruit_NeoPixel(TOTAL_LEDS_NUMBER + POWERCELL_NUMLEDS, LEDS_STRIP1_PIN, MAIN_STRIP_COLOR_ORDER + NEO_KHZ800);
 #else
-Adafruit_NeoPixel blasterLeds = Adafruit_NeoPixel(TOTAL_LEDS_NUMBER, LEDS_STRIP1_PIN, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel blasterLeds = Adafruit_NeoPixel(TOTAL_LEDS_NUMBER, LEDS_STRIP1_PIN, MAIN_STRIP_COLOR_ORDER + NEO_KHZ800);
 #endif
 FiringRod firingRod(&blasterLeds,
                     FIRE_ROD_POT_PIN, HUE_POT_READY,
-                    &ROD_NUMLEDS, &LED_INDEX_TIP_1ST, &LED_INDEX_TIP_LAST);
-Vent vent(&blasterLeds, &LED_INDEX_VENT);
-Indicator slowBlowIndicator(&blasterLeds, &LED_INDEX_SLOWBLOW, "IND_SlBlw");
-Indicator topYellowIndicator(&blasterLeds, &LED_INDEX_TOP_YELLOW, "IND_topYw");
-Indicator topWhiteIndicator(&blasterLeds, &LED_INDEX_TOP_WHITE, "IND_topWh");
-Indicator frontOrangeIndicator(&blasterLeds, &LED_INDEX_FRONT_ORANGE, "IND_frOr");
+                    ROD_NUMLEDS, LED_INDEX_TIP_1ST, LED_INDEX_TIP_LAST);
+Vent vent(&blasterLeds, LED_INDEX_VENT);
+Indicator slowBlowIndicator(&blasterLeds, LED_INDEX_SLOWBLOW);
+Indicator topYellowIndicator(&blasterLeds, LED_INDEX_TOP_YELLOW);
+Indicator topWhiteIndicator(&blasterLeds, LED_INDEX_TOP_WHITE);
+Indicator frontOrangeIndicator(&blasterLeds, LED_INDEX_FRONT_ORANGE);
 Cyclotron cyclotron(&blasterLeds,
-                    &CYC_NUMLEDS, &LED_INDEX_CYC_START, &LED_INDEX_CYC_END,
-                    &CYC_RING_1ST, &CYC_RING_LAST, &CYC_CENTER,
-                    &CYCLOTRON_DIRECTION);
+                    CYC_NUMLEDS, LED_INDEX_CYC_START, LED_INDEX_CYC_END,
+                    CYC_RING_1ST, CYC_RING_LAST, CYC_CENTER,
+                    CYCLOTRON_DIRECTION);
 
 /***********************************************************/
 /*     POWER CELL LEDS STRIP OR BARMETER (OPTIONAL)        */
@@ -162,35 +206,46 @@ Cyclotron cyclotron(&blasterLeds,
 #define POWERCELL_EXIST
 #endif
 #if defined(POWERCELL_STRIP) && POWERCELL_ON_SAME_STRIP
-PowerCell powerCell(&blasterLeds, &POWERCELL_NUMLEDS, &POWERCELL_FIRST, &POWERCELL_LAST, &POWERCELL_DIRECTION);
+PowerCell powerCell(&blasterLeds, POWERCELL_NUMLEDS, POWERCELL_FIRST, POWERCELL_LAST, POWERCELL_DIRECTION);
 #elif defined(POWERCELL_STRIP) && defined(LEDS_STRIP2_PIN)
-Adafruit_NeoPixel powercellLeds = Adafruit_NeoPixel(POWERCELL_NUMLEDS, LEDS_STRIP2_PIN, NEO_GRB + NEO_KHZ800);
-PowerCell powerCell(&powercellLeds, &POWERCELL_NUMLEDS, &POWERCELL_FIRST, &POWERCELL_LAST, &POWERCELL_DIRECTION);
+Adafruit_NeoPixel powercellLeds = Adafruit_NeoPixel(POWERCELL_NUMLEDS, LEDS_STRIP2_PIN, POWERCELL_STRIP_COLOR_ORDER + NEO_KHZ800);
+PowerCell powerCell(&powercellLeds, POWERCELL_NUMLEDS, POWERCELL_FIRST, POWERCELL_LAST, POWERCELL_DIRECTION);
 #elif defined(POWERCELL_STRIP) && !defined(LEDS_STRIP2_PIN)
 #error "Power Cell LEDs STRIP : Optional NEW Power Cell LEDs strip enabled but strip pin is not defined, wrong board or wrong pins definition."
 #endif
 #if defined(POWERCELL_BARMETER) && defined(PCBM_MAX72XX_ON_PBM_CHAIN)
 
 // No new driver instance: use device 1 of PBM_driver.
-PowerCellBarMeter powerCell(
-    &POWERCELL_SEG_NUMBER,
-    &POWERCELL_DIRECTION,
-    &PBM_driver,
-    PCBM_DRIVER_ADDRESS,
-    PCBM_SEG_MAP);
+SBK_BarDrive<SBK_MAX72xxSoft> powerCellBarMeter(
+    &PBM_driver, PCBM_BARDRIVE_DEVICE_INDEX,
+    PCBM_BARDRIVE_ROWS, PCBM_BARDRIVE_COLUMNS,
+    POWERCELL_DIRECTION ? BarDirection::REVERSE : BarDirection::FORWARD);
 
 #elif defined(POWERCELL_BARMETER) && defined(PCBM_MAX72XX_SEPARATE)
 
 #if (defined(PCBM_DIN_PIN) + defined(PCBM_CLK_PIN) + defined(PCBM_LOAD_PIN)) != 3
 #error "POWER CELL BAR METER : bar meter with MAX72xx deriver is defined but the pins are undefined (PCBM_DIN_PIN, PCBM_CLK_PIN, PCBM_LOAD_PIN). Wrong board or wrong pins definition."
 #endif
-#include "SBK_WB_MAX72xx_V1_1_0.h"
-MAX72xx PCBM_driver(PCBM_DIN_PIN, PCBM_CLK_PIN, PCBM_LOAD_PIN, 1);
-PowerCellBarMeter powerCell(&POWERCELL_SEG_NUMBER, &POWERCELL_DIRECTION, &PCBM_driver, PCBM_DRIVER_ADDRESS, PCBM_SEG_MAP);
+SBK_MAX72xxSoft PCBM_driver(PCBM_DIN_PIN, PCBM_CLK_PIN, PCBM_LOAD_PIN, 1);
+SBK_BarDrive<SBK_MAX72xxSoft> powerCellBarMeter(
+    &PCBM_driver, PCBM_BARDRIVE_DEVICE_INDEX,
+    PCBM_BARDRIVE_ROWS, PCBM_BARDRIVE_COLUMNS,
+    POWERCELL_DIRECTION ? BarDirection::REVERSE : BarDirection::FORWARD);
 #elif defined(POWERCELL_BARMETER) && defined(PCBM_HT16K33)
-#include "SBK_WB_HT16K33_V1_1_0.h"
-HT16K33 PCBM_driver;
-PowerCellBarMeter powerCell(&POWERCELL_SEG_NUMBER, &POWERCELL_DIRECTION, &PCBM_driver, PCBM_DRIVER_ADDRESS, PCBM_SEG_MAP);
+SBK_HT16K33 PCBM_driver(1);
+SBK_BarDrive<SBK_HT16K33> powerCellBarMeter(
+    &PCBM_driver, PCBM_BARDRIVE_DEVICE_INDEX,
+    PCBM_BARDRIVE_ROWS, PCBM_BARDRIVE_COLUMNS,
+    POWERCELL_DIRECTION ? BarDirection::REVERSE : BarDirection::FORWARD);
+#endif
+
+#ifdef POWERCELL_BARMETER
+uint8_t powerCellBatteryPercent = 100;
+uint16_t powerCellAnimationInterval = PC_POWER_ON_UPDATE_INT / 2;
+uint16_t powerCellRampStartInterval = PC_POWER_ON_UPDATE_INT / 2;
+uint16_t powerCellRampTargetInterval = PC_POWER_ON_UPDATE_INT / 2;
+uint16_t powerCellRampDuration = 0;
+uint32_t powerCellRampStartTime = 0;
 #endif
 
 /***********************************************************/
@@ -208,13 +263,11 @@ BattMoniroting batt(BATT_PIN, POWER_MONITORING, selectedBattery, BATT_LOW_CUTOFF
 /***********************************************/
 // This is not an addressable LED, it's a single led drive directly from the pin and a series resistor
 // See CONFIG.H to enable/disable this indicator
-SingleColorIndicator fireButtonSingleLed(FIRE_BUTTON_LED_PIN, FIRE_BUTTON_LED_READY, "IND_fireBtn");
+SingleColorIndicator fireButtonSingleLed(FIRE_BUTTON_LED_PIN, FIRE_BUTTON_LED_READY);
 
 /*********************************************/
 /*    AUDIO PLAYER definition and helpers    */
 /*********************************************/
-// bool playing = false; // variable for playin status
-bool cycling = false; // Cycling/looping track mode tracker
 /****************************/
 /*    PLAYER definitions    */
 /****************************/
@@ -222,17 +275,23 @@ Player player(VOLUME_MAX, VOLUME_START,
               RX_PIN, TX_PIN, BUSY_PIN,
               AMP_MUTE_PIN,
               VOL_POT_PIN, VOL_POT_READY,
-              PLAYER_COMMAND_DELAY,
-              AUDIO_ADVANCE,
-              BUSY_PIN_READY);
+              PLAYER_COMMAND_DELAY
+#ifndef PLAYER_USE_BUSY_PIN
+              ,
+              AUDIO_ADVANCE
+#endif
+);
 /************************************/
 /* Audio board SERIAL COMMUNICATION */
 /************************************/
-#if defined(PLAYER_SOFTSERIAL)
+#if defined(PLAYER_SOFTSERIAL) && !defined(DISABLE_AUDIO_PLAYER)
+#include <SoftwareSerial.h>
 SoftwareSerial SoftSerial(RX_PIN, TX_PIN);
 #pragma message("Compiling for DFPlayer with SoftSerial communication.")
-#elif defined(PLAYER_SERIAL1)
+#elif defined(PLAYER_SERIAL1) && !defined(DISABLE_AUDIO_PLAYER)
 #pragma message("Compiling for DFPlayer with Serial1 communication.")
+#elif defined(DISABLE_AUDIO_PLAYER)
+#pragma message("Compiling with audio player disabled (animation timing stub enabled).")
 #endif
 
 /*********************************************/
@@ -240,19 +299,19 @@ SoftwareSerial SoftSerial(RX_PIN, TX_PIN);
 /* BUTTONS & SWITCHES definition and helpers */
 /*                                           */
 /*********************************************/
-// For switches and buttons managing
-Switch PBintensify(INTENSIFY_BUTTON_PIN, INTENSIFY_PB_LOGIC, "SW Intensify");
-Switch SWmain(MAIN_POWER_SWITCH_PIN, MAIN_POWER_SW_LOGIC, "SW Main");
-Switch SWcyclotron(CYCLOTRON_POWER_SWITCH_PIN, CYCLOTRON_POWER_SW_LOGIC, "SW Cyclotron");
-Switch SWactivate(ACTIVATE_SWITCH_PIN, ACTIVATE_SW_LOGIC, "SW Activate");
-Switch PBfire(FIRE_BUTTON_PIN, FIRE_PB_LOGIC, "Fire Button");
+// All switches and buttons use the MCU's internal pull-up resistor.
+Button PBintensify(INTENSIFY_BUTTON_PIN, ButtonWiring::INTERNAL_PULLUP, INTENSIFY_PB_LOGIC);
+Button SWmain(MAIN_POWER_SWITCH_PIN, ButtonWiring::INTERNAL_PULLUP, MAIN_POWER_SW_LOGIC);
+Button SWcyclotron(CYCLOTRON_POWER_SWITCH_PIN, ButtonWiring::INTERNAL_PULLUP, CYCLOTRON_POWER_SW_LOGIC);
+Button SWactivate(ACTIVATE_SWITCH_PIN, ButtonWiring::INTERNAL_PULLUP, ACTIVATE_SW_LOGIC);
+Button PBfire(FIRE_BUTTON_PIN, ButtonWiring::INTERNAL_PULLUP, FIRE_PB_LOGIC);
 
 #ifdef SMOKE_FEATURES_ENABLED
 /*********************************************/
 /*                SMOKER & FAN               */
 /*********************************************/
 Smoker smoker(SMOKE_RELAY_PIN, FAN_RELAY_PIN,
-              &SMOKER_MIN_OFF_TIME, &SMOKER_MAX_ON_TIME);
+              SMOKER_MIN_OFF_TIME, SMOKER_MAX_ON_TIME);
 #endif
 
 //////////////////////////////////////////////////////////////////////////
@@ -269,15 +328,13 @@ void setup(void)
 // Audio player setup
 // Uses Software Serial, pins should be define in SBK_WRISTBLASTER_CONFIG.h
 // Baudrate should be set according to your audio player native baudrate.
-#if defined(PLAYER_SOFTSERIAL)
+#if defined(PLAYER_SOFTSERIAL) && !defined(DISABLE_AUDIO_PLAYER)
   SoftSerial.begin(PLAYER_BAUDRATE);
-  if (!player.begin(SoftSerial))
-    DEBUG_PRINTLN("Player SoftSerial Init failed, please check the wire connection or pins definition!");
-#elif defined(PLAYER_SERIAL1)
+  player.begin(SoftSerial);
+#elif defined(PLAYER_SERIAL1) && !defined(DISABLE_AUDIO_PLAYER)
   Serial1.begin(PLAYER_BAUDRATE);
-  if (!player.begin(Serial1))
-    DEBUG_PRINTLN("Player Serial1 init failed, please check the wire connection or pins definition!");
-#else
+  player.begin(Serial1);
+#elif !defined(DISABLE_AUDIO_PLAYER)
 #pragma message("Player communication is not defined, check board/pins definitions.")
 #endif
 
@@ -301,33 +358,50 @@ void setup(void)
   batt.begin();
   battLevel = batt.readBattPercentage();
 
+  // Initialize the Panel BarMeter driver once. A shared PowerCell uses the
+  // same MAX72xx instance and therefore requires no second begin().
+#ifdef PBM_HT16K33
+  PBM_driver.setAddress(PBM_BARDRIVE_DEVICE_INDEX, PBM_DRIVER_ADDRESS);
+#endif
+  PBM_driver.begin();
+
 // Setup Optional PowerCell animations
 #ifdef POWERCELL_EXIST
 #if (defined POWERCELL_STRIP) && !POWERCELL_ON_SAME_STRIP // Power Cell is on a strip alone
+  powercellLeds.begin();
   powercellLeds.setBrightness(255);
   powercellLeds.clear();
   powercellLeds.show();
 #endif
 #ifdef POWERCELL_BARMETER
 #if defined(PCBM_MAX72XX_ON_PBM_CHAIN)
-  PBM_driver.begin(PCBM_DRIVER_ADDRESS); // device 1
+  // PBM_driver was initialized above for the complete shared chain.
 #else
-  PCBM_driver.begin(PCBM_DRIVER_ADDRESS);
+#if defined(PCBM_HT16K33)
+  PCBM_driver.setAddress(PCBM_BARDRIVE_DEVICE_INDEX, PCBM_DRIVER_ADDRESS);
 #endif
+  PCBM_driver.begin();
 #endif
+  powerCellBatteryPercent = constrain(map(battLevel, 20, 70, 20, 100), 20, 100);
+  powerCellBarMeter.clear();
+#if defined(PCBM_MAX72XX_ON_PBM_CHAIN)
+  PBM_driver.show(PCBM_BARDRIVE_DEVICE_INDEX);
+#else
+  PCBM_driver.show(PCBM_BARDRIVE_DEVICE_INDEX);
+#endif
+#else
   powerCell.begin(battLevel, selectedBattery);
   powerCell.clear();
   powerCell.update(battLevel);
+#endif
 #endif
 
   // Setup Single Led Indicator
   fireButtonSingleLed.begin();
 
   // setup bar meter
-  PBM_driver.begin(PBM_DRIVER_ADDRESS);
-  panelBarMeter.begin();
   panelBarMeter.clear();
-  panelBarMeter.update();
+  PBM_driver.show(PBM_BARDRIVE_DEVICE_INDEX);
 
   // setup for the switches/buttons
   SWactivate.begin();
@@ -350,34 +424,37 @@ void setup(void)
 void loop()
 {
 
-  // Troubleshooting info on wrist blaster states and stagesthis engine controlled components
+  // Report state and initialization changes for troubleshooting.
 #ifdef DEBUG_TO_SERIAL
   {
-    if (WBstate != prevState || stageFlag != prevStageFlag)
+    if (WBstate != prevState || stateInitialized != prevStateInitialized)
     {
       DEBUG_PRINT("Wrist Blaster State = ");
       DEBUG_PRINT(WBstate);
-      DEBUG_PRINT("  Stage = ");
-      DEBUG_PRINTLN(stageFlag);
-      if (WBstate != prevState)
-      {
-        prevState = WBstate;
-      }
-      if (stageFlag != prevStageFlag)
-      {
-        prevStageFlag = stageFlag;
-      }
+      DEBUG_PRINT("  Initialized = ");
+      DEBUG_PRINTLN(stateInitialized);
+
     }
   }
 #endif
 
   // Get time for this loop
-  currentTime = millis();
+  now = millis();
+
+  // Capture the previous state and initialization value for comparison in the next loop.
+  if (WBstate != prevState)
+      {
+        prevState = WBstate;
+      }
+      if (stateInitialized != prevStateInitialized)
+      {
+        prevStateInitialized = stateInitialized;
+      }
 
   // Check battery state and goes into POWER_DOWN then LOW_BATT if too low...
-  if (currentTime - prevBattReading > 2000)
+  if (now - prevBattReading > 2000)
   {
-    prevBattReading = currentTime;
+    prevBattReading = now;
 
     batt.updateReading();
     battLevel = batt.readBattPercentage();
@@ -386,8 +463,7 @@ void loop()
         WBstate != STATE_LOW_BATT &&
         batt.isBattTooLow())
     {
-      WBstate = STATE_POWER_ON_TO_OFF;
-      stageFlag = 0;
+      enterState(STATE_POWER_ON_TO_OFF);
     }
   }
 
@@ -395,113 +471,112 @@ void loop()
   bool update_leds_chain = false;
   getLEDsSchemeForThisState(); // Get new leds schemes for this loop
   // Update simple LEDs states to last animations schemes.
-  panelBarMeter.update(currentTime);
-  fireButtonSingleLed.update(currentTime);
+  panelBarMeter.animations().update(now);
+  panelBarMeter.show();
+  fireButtonSingleLed.update(now);
   // Optional Power Cell LEDs/BARMETER
 // Update optional PowerCell addressable LEDs chain with last color schemes.
 #ifdef POWERCELL_EXIST
-  getPowercellLEDsSchemeForThisState();
+  getPowerCellScheme();
 #if defined(POWERCELL_STRIP) && !POWERCELL_ON_SAME_STRIP
-  if (powerCell.update(currentTime, battLevel))
+  if (powerCell.update(now, battLevel))
     powercellLeds.show();
 #elif defined(POWERCELL_STRIP) && POWERCELL_ON_SAME_STRIP
   {
-    update_leds_chain |= powerCell.update(currentTime, battLevel);
+    update_leds_chain |= powerCell.update(now, battLevel);
   }
 #elif defined(POWERCELL_BARMETER)
-  powerCell.update(currentTime, battLevel);
+  powerCellBarMeter.animations().update(now);
+#if defined(PCBM_MAX72XX_ON_PBM_CHAIN)
+  PBM_driver.show(PCBM_BARDRIVE_DEVICE_INDEX);
+#else
+  PCBM_driver.show(PCBM_BARDRIVE_DEVICE_INDEX);
+#endif
 #endif
 #endif
 
   // Update addressable LEDs chain with last color schemes.
-  update_leds_chain |= slowBlowIndicator.update(currentTime);
-  update_leds_chain |= topWhiteIndicator.update(currentTime);
-  update_leds_chain |= topYellowIndicator.update(currentTime);
-  update_leds_chain |= frontOrangeIndicator.update(currentTime);
-  update_leds_chain |= cyclotron.update(currentTime);
-  update_leds_chain |= vent.update(currentTime);
-  update_leds_chain |= firingRod.update(currentTime);
+  update_leds_chain |= slowBlowIndicator.update(now);
+  update_leds_chain |= topWhiteIndicator.update(now);
+  update_leds_chain |= topYellowIndicator.update(now);
+  update_leds_chain |= frontOrangeIndicator.update(now);
+  update_leds_chain |= cyclotron.update(now);
+  update_leds_chain |= vent.update(now);
+  update_leds_chain |= firingRod.update(now);
   if (update_leds_chain) // Update only if required
     blasterLeds.show();
 
   // Check buttons and switches readings and states
-  PBintensify.update(currentTime);
-  SWmain.update(currentTime);
-  SWcyclotron.update(currentTime);
-  SWactivate.update(currentTime);
-  PBfire.update(currentTime);
+  PBintensify.update(now);
+  SWmain.update(now);
+  SWcyclotron.update(now);
+  SWactivate.update(now);
+  PBfire.update(now);
 
 #ifdef SMOKE_FEATURES_ENABLED
   // Update smoker
-  smoker.update(currentTime);
+  smoker.update(now);
 #endif
 
   // DFPlayer Mini Management
-  player.update(currentTime);
+  player.update(now);
   player.setVolWithPot(); // Set audio volume with potentiometer
-  // Ensure command Delay is done before any other action
+
+  // Keep updating engines above, but wait for the DFPlayer command interval
+  // before sending another audio command or processing state transitions.
   if (!player.checkCommandDelay())
     return;
 
-  ///////////////////////////////////////////////////////////////
-  // Actions for different blaster states
+  // The player is ready: process the current state's runtime logic.
+  handleWristBlasterState();
+}
+/********************** END_SEQ MAIN LOOP *******************/
+
+///////////////////////////////////////////////////////////////
+// Execute the control flow for the current blaster state.
+// Phases inside a state coordinate animation and effect transitions.
+///////////////////////////////////////////////////////////////
+void handleWristBlasterState()
+{
   switch (WBstate)
   {
+
+  default:
   case STATE_ZERO:
   {
-    DEBUG_PRINTLN("Invalid WBstate, STATE_ZERO...");
-    WBstate = SWmain.isON() ? STATE_POWER_ON_TO_OFF : STATE_POWER_OFF;
-    stageFlag = 0;
+    DEBUG_PRINTLN("Invalid WBstate... Recovering to POWER-OFF state");
+    DEBUG_PRINTLN();
+    player.stop();
+    enterState(STATE_POWER_OFF);
     break;
   }
 
   //////////////////////////////////////////////
   case STATE_LOW_BATT:
   {
-    switch (stageFlag)
-    {
-    case 0: // Initiate this wrist blaster State :
+    if (!stateInitialized) // Initiate this wrist blaster State :
     {
       DEBUG_PRINTLN("STATE_LOW_BATT");
 
       // Specifics state initializers :
-      heatLevel = 0;     // Reset heat level to 0
-      player.stop();     // Stop player, no track for this state
-      playingTrack = -1; // No state track is being played
+      heatLevel = 0; // Reset heat level to 0
+      player.stop(); // Stop player, no track for this state
       DEBUG_PRINTLN("Player STOP");
+      DEBUG_PRINTLN();
 
       // Standard initializers
-      stateStartTime = currentTime;
-      stageFlag = 1; // End state initialization when stageFlag is 1
-
-      DEBUG_PRINTLN();
+      stateStartTime = now;
+      stateInitialized = true; // End state initialization when stateInitialized is 1
+      // Wait for the DFPlayer command delay before running this state.
       break;
     }
 
-    case 1: // This wrist blaster state loop :
+    // Leave LOW_BATT once the pack voltage has recovered. If cutoff is
+    // disabled, isBattTooLow() is false and this state exits safely too.
+    if (!batt.isBattTooLow())
     {
-      if (BATT_LOW_CUTOFF == ENABLE)
-      {
-        // Wrist blaster state exits by priority :
-        if (!batt.isBattTooLow())
-        {
-          WBstate = STATE_POWER_OFF;
-          stageFlag = 0;
-          break;
-        }
-      }
-
+      enterState(STATE_POWER_OFF);
       break;
-    }
-    default:
-    {
-      DEBUG_PRINT("Invalid stageFlag in Main Loop State Machine, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
-      break;
-    }
     }
     break;
   }
@@ -509,155 +584,88 @@ void loop()
   //////////////////////////////////////////////
   case STATE_PARTY_MODE:
   {
-    switch (stageFlag)
-    {
-    case 0: // Initiate this wrist blaster State :
+    if (!stateInitialized) // Initiate this wrist blaster State :
     {
       DEBUG_PRINTLN("STATE_PARTY_MODE");
 
       // Specifics state initializers :
       player.setThemesPlaymode(); // Play files in folder 01 on SD Card
-      playingTrack = -2;          // No state track is being played
       DEBUG_PRINTLN("Play FOLDER");
+      DEBUG_PRINTLN();
 
       // Standard initializers
-      stateStartTime = currentTime;
-      stageFlag = 1; // End state initialization when stageFlag is 1
-
-      DEBUG_PRINTLN();
+      stateStartTime = now;
+      stateInitialized = true; // End state initialization when stateInitialized is 1
+      // Wait for the DFPlayer command delay before running this state.
       break;
     }
 
-    case 1: // This wrist blaster state loop :
-    {
-      // Enable/disable the track looping play mode if required, if updated break the loop to check command delay again
-      // Must be called after the play command in the initialization stage 0...
-      if (checkPlayModeForThisState())
-        break;
+    // Check Fire button to play next/previous themes track, needs a press and release
+    checkNextPreviousButton();
 
-      // Check Fire button to play next/previous themes track, needs a press and release
-      checkNextPreviousButton();
+    // Wrist blaster state exits by priority : check if wrist blaster goes into PARTY_MODE_OUT
+    if (checkIfSwitchExit(!getPartyModeState(), STATE_PARTY_MODE_OUT))
+      break;
 
-      // Wrist blaster state exits by priority : check if wrist blaster goes into PARTY_MODE_OUT
-      if (checkIfSwitchExit(!getPartyModeState(), STATE_PARTY_MODE_OUT))
-        break;
-      break;
-    }
-    default:
-    {
-      DEBUG_PRINT("Invalid stageFlag in Main Loop State Machine, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
-      break;
-    }
-    }
     break;
   }
 
   //////////////////////////////////////////////
   case STATE_PARTY_MODE_IN:
   {
-    switch (stageFlag)
-    {
-
-    case 0: // Initiate this wrist blaster State :
+    if (!stateInitialized) // Initiate this wrist blaster State :
     {
       DEBUG_PRINTLN("STATE_PARTY_MODE_IN");
+      DEBUG_PRINTLN();
 
       // Standard initializers
-      stageFlag = stateInitialization(); // End state initialization when stageFlag is 1
-
-      DEBUG_PRINTLN();
+      stateInitialized = stateInitialization(); // End state initialization when stateInitialized is 1
+      // Wait for the DFPlayer command delay before running this state.
       break;
     }
 
-    case 1: // This wrist blaster state loop :
-    {
-      // Enable/disable the track looping play mode if required, if updated break the loop to check command delay again
-      // Must be called after the play command in the initialization stage 0...
-      if (checkPlayModeForThisState())
-        break;
-
-      // Wrist blaster state exits by priority :
-      if (checkIfTrackDoneExit(STATE_PARTY_MODE)) // Check if track is ended before going into STATE_PARTY_MODE
-        break;
+    // Wrist blaster state exits by priority :
+    if (checkIfTrackDoneExit(STATE_PARTY_MODE)) // Check if track is ended before going into STATE_PARTY_MODE
       break;
-    }
-    default:
-    {
-      DEBUG_PRINT("Invalid stageFlag in Main Loop State Machine, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
-      break;
-    }
-    }
     break;
   }
 
   //////////////////////////////////////////////
   case STATE_PARTY_MODE_OUT:
   {
-    switch (stageFlag)
-    {
-
-    case 0: // Initiate this wrist blaster State :
+    if (!stateInitialized) // Initiate this wrist blaster State :
     {
       DEBUG_PRINTLN("STATE_PARTY_MODE_OUT");
+      DEBUG_PRINTLN();
 
       // Standard initializers
-      stageFlag = stateInitialization(); // End state initialization when stageFlag is 1
+      stateInitialized = stateInitialization(); // End state initialization when stateInitialized is 1
 
-      DEBUG_PRINTLN();
+      // Wait for the DFPlayer command delay before running this state.
       break;
     }
 
-    case 1: // This wrist blaster state loop :
-    {
-      // Enable/disable the track looping play mode if required, if updated break the loop to check command delay again
-      // Must be called after the play command in the initialization stage 0...
-      if (checkPlayModeForThisState())
-        break;
+    // Wrist blaster state exits by priority :
 
-      // Wrist blaster state exits by priority :
+    // Determine next state :
+    BlasterState next = WBstate;
+    if (SWmain.isReleased())
+      next = STATE_POWER_OFF;
+    else if (SWcyclotron.isReleased())
+      next = STATE_POWER_OFF_TO_ON;
+    else
+      next = SWactivate.isPressed() ? STATE_CYCLOTRON_ON_TO_FULL : STATE_CYCLOTRON_OFF_TO_ON;
 
-      // Determine next state :
-      BlasterState next = WBstate;
-      if (SWmain.isOFF())
-        next = STATE_POWER_OFF;
-      else if (SWcyclotron.isOFF())
-        next = STATE_POWER_OFF_TO_ON;
-      else
-        next = SWactivate.isON() ? STATE_CYCLOTRON_ON_TO_FULL : STATE_CYCLOTRON_OFF_TO_ON;
-
-      // If track's done, go to next state
-      if (checkIfTrackDoneExit(next))
-        break;
+    // If track's done, go to next state
+    if (checkIfTrackDoneExit(next))
       break;
-    }
-    default:
-    {
-      DEBUG_PRINT("Invalid stageFlag in Main Loop State Machine, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
-      break;
-    }
-    }
     break;
   }
 
   //////////////////////////////////////////////
   case STATE_POWER_OFF:
   {
-    switch (stageFlag)
-    {
-
-    case 0: // Initiate this wrist blaster State :
+    if (!stateInitialized) // Initiate this wrist blaster State :
     {
       DEBUG_PRINTLN("STATE_POWER_OFF");
 
@@ -666,49 +674,30 @@ void loop()
 #endif
 
       // Specifics state initializers :
-      heatLevel = 0;     // Reset heat level to 0
-      player.stop();     // Stop player, no track for this state
-      playingTrack = -1; // No state track is being played
+      heatLevel = 0; // Reset heat level to 0
+      player.stop(); // Stop player, no track for this state
       DEBUG_PRINTLN("Player STOP");
+      DEBUG_PRINTLN();
 
       // Standard initializers
-      stateStartTime = currentTime;
-      stageFlag = 1; // End state initialization when stageFlag is 1
+      stateStartTime = now;
+      stateInitialized = true; // End state initialization when stateInitialized is 1
 
-      DEBUG_PRINTLN();
+      // Wait for the DFPlayer command delay before running this state.
       break;
     }
 
-    case 1: // This wrist blaster state loop :
-    {
-      // Enable/disable the track looping play mode if required, if updated break the loop to check command delay again
-      // Must be called after the play command in the initialization stage 0...
-      if (checkPlayModeForThisState())
-        break;
-
-      //  Specifics state mechanics :
+    //  Specifics state mechanics :
 #ifdef SMOKE_FEATURES_ENABLED
-      checkSmokerEnabling(); // Enable/disable smoker with fire button while in POWER OFF state
+    checkSmokerEnabling(); // Enable/disable smoker with fire button while in POWER OFF state
 #endif
 
-      // Wrist blaster state exits by priority :
-      if (checkIfSwitchExit(getPartyModeState(), STATE_PARTY_MODE_IN)) // Check if the Intensify Switch is ON, goes into STATE_PARTY_MODE_IN
-        break;
+    // Wrist blaster state exits by priority :
+    if (checkIfSwitchExit(getPartyModeState(), STATE_PARTY_MODE_IN)) // Check if the Intensify Switch is ON, goes into STATE_PARTY_MODE_IN
+      break;
 
-      if (checkIfSwitchExit(SWmain.isON(), STATE_POWER_OFF_TO_ON)) // Check if Main Switch is ON, goes into main booting state STATE_POWER_OFF_TO_ON
-        break;
+    if (checkIfSwitchExit(SWmain.isPressed(), STATE_POWER_OFF_TO_ON)) // Check if Main Switch is ON, goes into main booting state STATE_POWER_OFF_TO_ON
       break;
-    }
-    default:
-    {
-      DEBUG_PRINT("Invalid stageFlag in Main Loop State Machine, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
-      break;
-    }
-    }
 
     break;
   }
@@ -716,48 +705,27 @@ void loop()
   //////////////////////////////////////////////
   case STATE_POWER_OFF_TO_ON:
   {
-    switch (stageFlag)
-    {
-
-    case 0: // Initiate this wrist blaster State :
+    if (!stateInitialized) // Initiate this wrist blaster State :
     {
       DEBUG_PRINTLN("STATE_POWER_OFF_TO_ON");
+      DEBUG_PRINTLN();
 
       // Standard initializers
-      stageFlag = stateInitialization(); // End state initialization when stageFlag is 1
+      stateInitialized = stateInitialization(); // End state initialization when stateInitialized is 1
 
-      DEBUG_PRINTLN();
+      // Wait for the DFPlayer command delay before running this state.
       break;
     }
 
-    case 1: // This wrist blaster state loop :
-    {
-      // Enable/disable the track looping play mode if required, if updated break the loop to check command delay again
-      // Must be called after the play command in the initialization stage 0...
-      if (checkPlayModeForThisState())
-        break;
+    //  Specifics state mechanics :
+    heatLevelCooling();
 
-      //  Specifics state mechanics :
-      heatLevelCooling();
-
-      // Wrist blaster state exits by priority :
-      if (checkIfSwitchExit(SWmain.isOFF(), STATE_POWER_ON_TO_OFF)) // Check if Main Switch is OFF, goes into main shutting state STATE_POWER_ON_TO_OFF
-        break;
-
-      if (checkIfTrackDoneExit(STATE_POWER_ON)) // Check if track is ended before going into STATE_POWER_ON
-        break;
+    // Wrist blaster state exits by priority :
+    if (checkIfSwitchExit(SWmain.isReleased(), STATE_POWER_ON_TO_OFF)) // Check if Main Switch is OFF, goes into main shutting state STATE_POWER_ON_TO_OFF
       break;
-    }
-    default:
-    {
-      DEBUG_PRINT("Invalid stageFlag in Main Loop State Machine, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
+
+    if (checkIfTrackDoneExit(STATE_POWER_ON)) // Check if track is ended before going into STATE_POWER_ON
       break;
-    }
-    }
 
     break;
   }
@@ -765,114 +733,72 @@ void loop()
     //////////////////////////////////////////////
   case STATE_POWER_ON_TO_OFF:
   {
-    switch (stageFlag)
-    {
-    case 0: // Initiate this wrist blaster State :
+    if (!stateInitialized) // Initiate this wrist blaster State :
     {
       DEBUG_PRINTLN("STATE_POWER_ON_TO_OFF");
+      DEBUG_PRINTLN();
 
 #ifdef SMOKE_FEATURES_ENABLED
       smoker.smoke(DISABLE, DISABLE_FAN);
 #endif
 
       // Standard initializers
-      stageFlag = stateInitialization(); // End state initialization when stageFlag is 1
+      stateInitialized = stateInitialization(); // End state initialization when stateInitialized is 1
 
-      DEBUG_PRINTLN();
+      // Wait for the DFPlayer command delay before running this state.
       break;
     }
 
-    case 1: // This wrist blaster state loop :
-    {
-      // Enable/disable the track looping play mode if required, if updated break the loop to check command delay again
-      // Must be called after the play command in the initialization stage 0...
-      if (checkPlayModeForThisState())
-        break;
+    //  Specifics state mechanics :
+    heatLevelCooling();
 
-      //  Specifics state mechanics :
-      heatLevelCooling();
-
-      // Wrist blaster state exits by priority :
+    // Wrist blaster state exits by priority :
 #ifdef POWERCELL_EXIST
-      // With a PowerCell present, keep shutdown non-interruptible:
-      // the PowerCell shutdown animation must complete to finish its internal state transition
-      // before allowing any reboot path.
-      if (checkIfTrackDoneExit(batt.isBattTooLow() ? STATE_LOW_BATT : STATE_POWER_OFF)) // Check if track is ended before going into STATE_POWER_OFF or STATE_LOW_BATT
-        break;
+    // With a PowerCell present, keep shutdown non-interruptible:
+    // the PowerCell shutdown animation must complete to finish its internal state transition
+    // before allowing any reboot path.
+    if (checkIfTrackDoneExit(batt.isBattTooLow() ? STATE_LOW_BATT : STATE_POWER_OFF)) // Check if track is ended before going into STATE_POWER_OFF or STATE_LOW_BATT
+      break;
 #else
-      // Without a PowerCell shutdown sequence to preserve, allow the Main switch
-      // to cancel shutdown and restart immediately.
-      if (checkIfSwitchExit(SWmain.isON(), STATE_POWER_OFF_TO_ON)) // Check if Main Switch is ON, goes into main booting state STATE_POWER_OFF_TO_ON
-        break;
+    // Without a PowerCell shutdown sequence to preserve, allow the Main switch
+    // to cancel shutdown and restart immediately.
+    if (checkIfSwitchExit(SWmain.isPressed(), STATE_POWER_OFF_TO_ON)) // Check if Main Switch is ON, goes into main booting state STATE_POWER_OFF_TO_ON
+      break;
 
-      // If there is no restart request, complete the regular shutdown path.
-      if (checkIfTrackDoneExit(STATE_POWER_OFF)) // Check if track is ended before going into STATE_POWER_OFF
-        break;
+    // If there is no restart request, complete the regular shutdown path.
+    if (checkIfTrackDoneExit(STATE_POWER_OFF)) // Check if track is ended before going into STATE_POWER_OFF
+      break;
 #endif
-
-      break;
-    }
-    default:
-    {
-      DEBUG_PRINT("Invalid stageFlag in Main Loop State Machine, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
-      break;
-    }
-    }
     break;
   }
 
   //////////////////////////////////////////////
   case STATE_POWER_ON:
   {
-    switch (stageFlag)
-    {
-
-    case 0: // Initiate this wrist blaster State :
+    if (!stateInitialized) // Initiate this wrist blaster State :
     {
       DEBUG_PRINTLN("STATE_POWER_ON");
+      DEBUG_PRINTLN();
 
       // Standard initializers
-      stageFlag = stateInitialization(); // End state initialization when stageFlag is 1
+      stateInitialized = stateInitialization(); // End state initialization when stateInitialized is 1
 
-      DEBUG_PRINTLN();
+      // Wait for the DFPlayer command delay before running this state.
       break;
     }
 
-    case 1: // This wrist blaster state loop :
-    {
-      // Enable/disable the track looping play mode if required, if updated break the loop to check command delay again
-      // Must be called after the play command in the initialization stage 0...
-      if (checkPlayModeForThisState())
-        break;
+    //  Specifics state mechanics :
+    heatLevelCooling();
 
-      //  Specifics state mechanics :
-      heatLevelCooling();
-
-      // Wrist blaster state exits by priority :
-      if (checkIfSwitchExit(getPartyModeState(), STATE_PARTY_MODE_IN)) // Check if the Intensify Switch is ON, goes into STATE_PARTY_MODE_IN
-        break;
-
-      if (checkIfSwitchExit(SWmain.isOFF(), STATE_POWER_ON_TO_OFF)) // Check if Main Switch is OFF, goes into main shutting state STATE_POWER_ON_TO_OFF
-        break;
-
-      if (checkIfSwitchExit(SWcyclotron.isON(), SWactivate.isON() ? STATE_CYCLOTRON_ON_TO_FULL : STATE_CYCLOTRON_OFF_TO_ON)) // Check if Cyclotron Switch is ON, goes into cyclotron booting state STATE_CYCLOTRON_OFF_TO_ON
-        break;
+    // Wrist blaster state exits by priority :
+    if (checkIfSwitchExit(getPartyModeState(), STATE_PARTY_MODE_IN)) // Check if the Intensify Switch is ON, goes into STATE_PARTY_MODE_IN
       break;
-    }
-    default:
-    {
-      DEBUG_PRINT("Invalid stageFlag in Main Loop State Machine, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
+
+    if (checkIfSwitchExit(SWmain.isReleased(), STATE_POWER_ON_TO_OFF)) // Check if Main Switch is OFF, goes into main shutting state STATE_POWER_ON_TO_OFF
       break;
-    }
-    }
+
+    if (checkIfSwitchExit(SWcyclotron.isPressed(), SWactivate.isPressed() ? STATE_CYCLOTRON_ON_TO_FULL : STATE_CYCLOTRON_OFF_TO_ON)) // Check if Cyclotron Switch is ON, goes into cyclotron booting state STATE_CYCLOTRON_OFF_TO_ON
+      break;
 
     break;
   }
@@ -880,54 +806,33 @@ void loop()
     //////////////////////////////////////////////
   case STATE_CYCLOTRON_OFF_TO_ON:
   {
-    switch (stageFlag)
-    {
-
-    case 0: // Initiate this wrist blaster State :
+    if (!stateInitialized) // Initiate this wrist blaster State :
     {
       DEBUG_PRINTLN("STATE_CYCLOTRON_OFF_TO_ON");
+      DEBUG_PRINTLN();
 
       // Standard initializers
-      stageFlag = stateInitialization(); // End state initialization when stageFlag is 1
+      stateInitialized = stateInitialization(); // End state initialization when stateInitialized is 1
 
-      DEBUG_PRINTLN();
+      // Wait for the DFPlayer command delay before running this state.
       break;
     }
 
-    case 1: // This wrist blaster state loop :
-    {
-      // Enable/disable the track looping play mode if required, if updated break the loop to check command delay again
-      // Must be called after the play command in the initialization stage 0...
-      if (checkPlayModeForThisState())
-        break;
+    //  Specifics state mechanics :
+    heatLevelCooling();
 
-      //  Specifics state mechanics :
-      heatLevelCooling();
-
-      // Wrist blaster state exits by priority :
-      if (checkIfSwitchExit(SWmain.isOFF(), STATE_ALL_ON_TO_OFF)) // Check if Main Switch is OFF, goes into main shutting state STATE_ALL_ON_TO_OFF
-        break;
-
-      if (checkIfSwitchExit(SWcyclotron.isOFF(), STATE_CYCLOTRON_ON_TO_OFF)) // Check if Cyclotron Switch is OFF, goes into cyclotron shutting state STATE_CYCLOTRON_ON_TO_OFF
-        break;
-
-      if (checkIfSwitchExit(SWactivate.isON(), STATE_CYCLOTRON_ON_TO_FULL)) // Check if Cyclotron Switch is OFF, goes into cyclotron shutting state STATE_CYCLOTRON_ON_TO_OFF
-        break;
-
-      if (checkIfTrackDoneExit(STATE_CYCLOTRON_ON)) // Check if track is ended before going into STATE_CYCLOTRON_ON
-        break;
+    // Wrist blaster state exits by priority :
+    if (checkIfSwitchExit(SWmain.isReleased(), STATE_ALL_ON_TO_OFF)) // Check if Main Switch is OFF, goes into main shutting state STATE_ALL_ON_TO_OFF
       break;
-    }
-    default:
-    {
-      DEBUG_PRINT("Invalid stageFlag in Main Loop State Machine, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
+
+    if (checkIfSwitchExit(SWcyclotron.isReleased(), STATE_CYCLOTRON_ON_TO_OFF)) // Check if Cyclotron Switch is OFF, goes into cyclotron shutting state STATE_CYCLOTRON_ON_TO_OFF
       break;
-    }
-    }
+
+    if (checkIfSwitchExit(SWactivate.isPressed(), STATE_CYCLOTRON_ON_TO_FULL)) // Activate switch is ON: ramp the cyclotron to FULL power
+      break;
+
+    if (checkIfTrackDoneExit(STATE_CYCLOTRON_ON)) // Check if track is ended before going into STATE_CYCLOTRON_ON
+      break;
 
     break;
   }
@@ -935,51 +840,30 @@ void loop()
   //////////////////////////////////////////////
   case STATE_CYCLOTRON_ON_TO_OFF:
   {
-    switch (stageFlag)
-    {
-
-    case 0: // Initiate this wrist blaster State :
+    if (!stateInitialized) // Initiate this wrist blaster State :
     {
       DEBUG_PRINTLN("STATE_CYCLOTRON_ON_TO_OFF");
+      DEBUG_PRINTLN();
 
       // Standard initializers
-      stageFlag = stateInitialization(); // End state initialization when stageFlag is 1
+      stateInitialized = stateInitialization(); // End state initialization when stateInitialized is 1
 
-      DEBUG_PRINTLN();
+      // Wait for the DFPlayer command delay before running this state.
       break;
     }
 
-    case 1: // This wrist blaster state loop :
-    {
-      // Enable/disable the track looping play mode if required, if updated break the loop to check command delay again
-      // Must be called after the play command in the initialization stage 0...
-      if (checkPlayModeForThisState())
-        break;
+    //  Specifics state mechanics :
+    heatLevelCooling();
 
-      //  Specifics state mechanics :
-      heatLevelCooling();
-
-      // Wrist blaster state exits by priority :
-      if (checkIfSwitchExit(SWmain.isOFF(), STATE_ALL_ON_TO_OFF)) // Check if Main Switch is OFF, goes into main shutting state STATE_ALL_ON_TO_OFF
-        break;
-
-      if (checkIfSwitchExit(SWcyclotron.isON(), STATE_CYCLOTRON_OFF_TO_ON)) // Check if Cyclotron Switch is ON, goes into cyclotron booting state STATE_CYCLOTRON_OFF_TO_ON
-        break;
-
-      if (checkIfTrackDoneExit(STATE_POWER_ON)) // Check if track is ended before going into STATE_POWER_ON witch cyclotron OFF
-        break;
+    // Wrist blaster state exits by priority :
+    if (checkIfSwitchExit(SWmain.isReleased(), STATE_ALL_ON_TO_OFF)) // Check if Main Switch is OFF, goes into main shutting state STATE_ALL_ON_TO_OFF
       break;
-    }
-    default:
-    {
-      DEBUG_PRINT("Invalid stageFlag in Main Loop State Machine, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
+
+    if (checkIfSwitchExit(SWcyclotron.isPressed(), STATE_CYCLOTRON_OFF_TO_ON)) // Check if Cyclotron Switch is ON, goes into cyclotron booting state STATE_CYCLOTRON_OFF_TO_ON
       break;
-    }
-    }
+
+    if (checkIfTrackDoneExit(STATE_POWER_ON)) // Check if track is ended before going into STATE_POWER_ON witch cyclotron OFF
+      break;
 
     break;
   }
@@ -987,122 +871,70 @@ void loop()
   //////////////////////////////////////////////
   case STATE_CYCLOTRON_ON:
   {
-    switch (stageFlag)
-    {
-
-    case 0: // Initiate this wrist blaster State :
+    if (!stateInitialized) // Initiate this wrist blaster State :
     {
       DEBUG_PRINTLN("STATE_CYCLOTRON_ON");
+      DEBUG_PRINTLN();
 
       // Standard initializers
-      stageFlag = stateInitialization(); // End state initialization when stageFlag is 1
+      stateInitialized = stateInitialization(); // End state initialization when stateInitialized is 1
 
       DEBUG_PRINTLN();
+      // Wait for the DFPlayer command delay before running this state.
       break;
     }
 
-    case 1: // This wrist blaster state loop :
-    {
-      // Ensure command Delay is done before any other action
-      if (!player.checkCommandDelay())
-        break;
+    //  Specifics state mechanics :
+    heatLevelCooling();
 
-      // Enable/disable the track looping play mode if required, if updated break the loop to check command delay again
-      // Must be called after the play command in the initialization stage 0...
-      if (checkPlayModeForThisState())
-        break;
-
-      //  Specifics state mechanics :
-      heatLevelCooling();
-
-      // Wrist blaster state exits by priority :
-      if (checkIfSwitchExit(getPartyModeState(), STATE_PARTY_MODE_IN)) // Check if the Intensify Switch is ON, goes into STATE_PARTY_MODE_IN
-        break;
-
-      if (checkIfSwitchExit(SWmain.isOFF(), STATE_ALL_ON_TO_OFF)) // Check if Main Switch is OFF, goes into main shutting state STATE_ALL_ON_TO_OFF
-        break;
-
-      if (checkIfSwitchExit(SWcyclotron.isOFF(), STATE_CYCLOTRON_ON_TO_OFF)) // Check if Cyclotron Switch is OFF, goes into cyclotron shutting state STATE_CYCLOTRON_ON_TO_OF
-        break;
-
-      if (checkIfSwitchExit(SWactivate.isON(), STATE_CYCLOTRON_ON_TO_FULL)) // Check if Cyclotron Activate Switch is ON, goes into cyclotron booting FULL state STATE_CYCLOTRON_ON_TO_FULL
-        break;
-
-      // if (checkIfSwitchExit(PBfire.isON(), // Check if Firing Button pushed, goes into capture firing ramp state STATE_CAPTURE
-      //                       (heatLevel < getCaptureScaledDuration())
-      //                           ? STATE_CAPTURE
-      //                           : STATE_CAPTURE_WARNING_OVERHEAT))
-      //   break;
-
-      if (checkIfSwitchExit(PBfire.isON(), STATE_CAPTURE))
-        break;
+    // Wrist blaster state exits by priority :
+    if (checkIfSwitchExit(getPartyModeState(), STATE_PARTY_MODE_IN)) // Check if the Intensify Switch is ON, goes into STATE_PARTY_MODE_IN
       break;
-    }
-    default:
-    {
-      DEBUG_PRINT("Invalid stageFlag in Main Loop State Machine, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
+
+    if (checkIfSwitchExit(SWmain.isReleased(), STATE_ALL_ON_TO_OFF)) // Check if Main Switch is OFF, goes into main shutting state STATE_ALL_ON_TO_OFF
       break;
-    }
-    }
+
+    if (checkIfSwitchExit(SWcyclotron.isReleased(), STATE_CYCLOTRON_ON_TO_OFF)) // Check if Cyclotron Switch is OFF, goes into cyclotron shutting state STATE_CYCLOTRON_ON_TO_OF
+      break;
+
+    if (checkIfSwitchExit(SWactivate.isPressed(), STATE_CYCLOTRON_ON_TO_FULL)) // Check if Cyclotron Activate Switch is ON, goes into cyclotron booting FULL state STATE_CYCLOTRON_ON_TO_FULL
+      break;
+
+    if (checkIfSwitchExit(PBfire.isPressed(), STATE_CAPTURE))
+      break;
     break;
   }
 
   //////////////////////////////////////////////
   case STATE_CYCLOTRON_ON_TO_FULL:
   {
-    switch (stageFlag)
-    {
-
-    case 0: // Initiate this wrist blaster State :
+    if (!stateInitialized) // Initiate this wrist blaster State :
     {
       DEBUG_PRINTLN("STATE_CYCLOTRON_ON_TO_FULL");
+      DEBUG_PRINTLN();
 
       // Standard initializers
-      stageFlag = stateInitialization(); // End state initialization when stageFlag is 1
+      stateInitialized = stateInitialization(); // End state initialization when stateInitialized is 1
 
-      DEBUG_PRINTLN();
+      // Wait for the DFPlayer command delay before running this state.
       break;
     }
 
-    case 1: // This wrist blaster state loop :
+    //  Specifics state mechanics :
+    heatLevelCooling();
 
-    {
-      // Enable/disable the track looping play mode if required, if updated break the loop to check command delay again
-      // Must be called after the play command in the initialization stage 0...
-      if (checkPlayModeForThisState())
-        break;
-
-      //  Specifics state mechanics :
-      heatLevelCooling();
-
-      // Wrist blaster state exits by priority :
-      if (checkIfSwitchExit(SWmain.isOFF(), STATE_ALL_ON_TO_OFF)) // Check if Main Switch is OFF, goes into main shutting state STATE_ALL_ON_TO_OFF
-        break;
-
-      if (checkIfSwitchExit(SWcyclotron.isOFF(), STATE_CYCLOTRON_ON_TO_OFF)) // Check if Cyclotron Switch is OFF, goes into cyclotron shutting state STATE_CYCLOTRON_ON_TO_OFF
-        break;
-
-      if (checkIfSwitchExit(SWactivate.isOFF(), STATE_CYCLOTRON_FULL_TO_ON)) // Check if Cyclotron Activate Switch is OFF, goes into cyclotron returning to normal STATE_CYCLOTRON_FULL_TO_ON
-        break;
-
-      if (checkIfTrackDoneExit(STATE_CYCLOTRON_FULL_POWER)) // Check if track is ended before going into STATE_CYCLOTRON_FULL_POWER
-        break;
+    // Wrist blaster state exits by priority :
+    if (checkIfSwitchExit(SWmain.isReleased(), STATE_ALL_ON_TO_OFF)) // Check if Main Switch is OFF, goes into main shutting state STATE_ALL_ON_TO_OFF
       break;
-    }
-    default:
-    {
-      DEBUG_PRINT("Invalid stageFlag in Main Loop State Machine, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
+
+    if (checkIfSwitchExit(SWcyclotron.isReleased(), STATE_CYCLOTRON_ON_TO_OFF)) // Check if Cyclotron Switch is OFF, goes into cyclotron shutting state STATE_CYCLOTRON_ON_TO_OFF
       break;
-    }
-    }
+
+    if (checkIfSwitchExit(SWactivate.isReleased(), STATE_CYCLOTRON_FULL_TO_ON)) // Check if Cyclotron Activate Switch is OFF, goes into cyclotron returning to normal STATE_CYCLOTRON_FULL_TO_ON
+      break;
+
+    if (checkIfTrackDoneExit(STATE_CYCLOTRON_FULL_POWER)) // Check if track is ended before going into STATE_CYCLOTRON_FULL_POWER
+      break;
 
     break;
   }
@@ -1110,235 +942,170 @@ void loop()
   //////////////////////////////////////////////
   case STATE_CYCLOTRON_FULL_TO_ON:
   {
-    switch (stageFlag)
-    {
-
-    case 0: // Initiate this wrist blaster State :
+    if (!stateInitialized) // Initiate this wrist blaster State :
     {
       DEBUG_PRINTLN("STATE_CYCLOTRON_FULL_TO_ON");
+      DEBUG_PRINTLN();
 
       // Standard initializers
-      stageFlag = stateInitialization(); // End state initialization when stageFlag is 1
+      stateInitialized = stateInitialization(); // End state initialization when stateInitialized is 1
 
-      DEBUG_PRINTLN();
+      // Wait for the DFPlayer command delay before running this state.
       break;
     }
 
-    case 1: // This wrist blaster state loop :
+    //  Specifics state mechanics :
+    heatLevelCooling();
 
-    {
-      // Enable/disable the track looping play mode if required, if updated break the loop to check command delay again
-      // Must be called after the play command in the initialization stage 0...
-      if (checkPlayModeForThisState())
-        break;
-
-      //  Specifics state mechanics :
-      heatLevelCooling();
-
-      // Wrist blaster state exits by priority :
-      if (checkIfSwitchExit(SWmain.isOFF(), STATE_ALL_ON_TO_OFF)) // Check if Main Switch is OFF, goes into main shutting state STATE_ALL_ON_TO_OFF
-        break;
-
-      if (checkIfSwitchExit(SWcyclotron.isOFF(), STATE_CYCLOTRON_ON_TO_OFF)) // Check if Cyclotron Switch is OFF, goes into cyclotron shutting state STATE_CYCLOTRON_ON_TO_OFF
-        break;
-
-      if (checkIfSwitchExit(SWactivate.isON(), STATE_CYCLOTRON_ON_TO_FULL)) /// Check if Cyclotron Activate Switch is ON, goes into cyclotron booting FULL state STATE_CYCLOTRON_ON_TO_FULL
-        break;
-
-      if (checkIfTrackDoneExit(STATE_CYCLOTRON_ON)) // Check if track is ended before going into STATE_CYCLOTRON_ON
-        break;
+    // Wrist blaster state exits by priority :
+    if (checkIfSwitchExit(SWmain.isReleased(), STATE_ALL_ON_TO_OFF)) // Check if Main Switch is OFF, goes into main shutting state STATE_ALL_ON_TO_OFF
       break;
-    }
-    default:
-    {
-      DEBUG_PRINT("Invalid stageFlag in Main Loop State Machine, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
+
+    if (checkIfSwitchExit(SWcyclotron.isReleased(), STATE_CYCLOTRON_ON_TO_OFF)) // Check if Cyclotron Switch is OFF, goes into cyclotron shutting state STATE_CYCLOTRON_ON_TO_OFF
       break;
-    }
-    }
+
+    if (checkIfSwitchExit(SWactivate.isPressed(), STATE_CYCLOTRON_ON_TO_FULL)) /// Check if Cyclotron Activate Switch is ON, goes into cyclotron booting FULL state STATE_CYCLOTRON_ON_TO_FULL
+      break;
+
+    if (checkIfTrackDoneExit(STATE_CYCLOTRON_ON)) // Check if track is ended before going into STATE_CYCLOTRON_ON
+      break;
     break;
   }
 
   //////////////////////////////////////////////
   case STATE_CYCLOTRON_FULL_POWER:
-
   {
-    switch (stageFlag)
-    {
-
-    case 0: // Initiate this wrist blaster State :
+    if (!stateInitialized) // Initiate this wrist blaster State :
     {
       DEBUG_PRINTLN("STATE_CYCLOTRON_FULL_POWER");
+      DEBUG_PRINTLN();
 
       // Standard initializers
-      stageFlag = stateInitialization(); // End state initialization when stageFlag is 1
+      stateInitialized = stateInitialization(); // End state initialization when stateInitialized is 1
 
-      DEBUG_PRINTLN();
+      // Wait for the DFPlayer command delay before running this state.
       break;
     }
 
-    case 1: // This wrist blaster state loop :
-    {
-      // Enable/disable the track looping play mode if required, if updated break the loop to check command delay again
-      // Must be called after the play command in the initialization stage 0...
-      if (checkPlayModeForThisState())
-        break;
+    //  Specifics state mechanics :
+    heatLevelCooling();
 
-      //  Specifics state mechanics :
-      heatLevelCooling();
-
-      // Wrist blaster state exits by priority :
-      if (checkIfSwitchExit(getPartyModeState(), STATE_PARTY_MODE_IN)) // Check if the Intensify Switch is ON, goes into STATE_PARTY_MODE_IN
-        break;
-
-      if (checkIfSwitchExit(SWmain.isOFF(), STATE_ALL_ON_TO_OFF)) // Check if Main Switch is OFF, goes into main shutting state STATE_ALL_ON_TO_OFF
-        break;
-
-      if (checkIfSwitchExit(SWcyclotron.isOFF(), STATE_CYCLOTRON_ON_TO_OFF)) // Check if Cyclotron Switch is OFF, goes into cyclotron shutting state STATE_CYCLOTRON_ON_TO_OFF
-        break;
-
-      if (checkIfSwitchExit(SWactivate.isOFF(), STATE_CYCLOTRON_FULL_TO_ON)) // Check if Cyclotron Activate Switch is OFF, goes into cyclotron returning to normal STATE_CYCLOTRON_FULL_TO_ON
-        break;
-
-      if (checkIfSwitchExit(PBfire.isON(),
-                            (heatLevel < (MAX_BURST_SHOTS - 1) * 100.0 / MAX_BURST_SHOTS)
-                                ? STATE_BURST
-                                : STATE_BURST_OVERHEAT))
-        break;
+    // Wrist blaster state exits by priority :
+    if (checkIfSwitchExit(getPartyModeState(), STATE_PARTY_MODE_IN)) // Check if the Intensify Switch is ON, goes into STATE_PARTY_MODE_IN
       break;
-    }
-    default:
-    {
-      DEBUG_PRINT("Invalid stageFlag in Main Loop State Machine, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
+
+    if (checkIfSwitchExit(SWmain.isReleased(), STATE_ALL_ON_TO_OFF)) // Check if Main Switch is OFF, goes into main shutting state STATE_ALL_ON_TO_OFF
       break;
-    }
-    }
+
+    if (checkIfSwitchExit(SWcyclotron.isReleased(), STATE_CYCLOTRON_ON_TO_OFF)) // Check if Cyclotron Switch is OFF, goes into cyclotron shutting state STATE_CYCLOTRON_ON_TO_OFF
+      break;
+
+    if (checkIfSwitchExit(SWactivate.isReleased(), STATE_CYCLOTRON_FULL_TO_ON)) // Check if Cyclotron Activate Switch is OFF, goes into cyclotron returning to normal STATE_CYCLOTRON_FULL_TO_ON
+      break;
+
+    // Floating-point threshold division replaced by an equivalent integer cross-multiplication.
+    if (checkIfSwitchExit(PBfire.isPressed(),
+                          ((uint32_t)heatLevel * MAX_BURST_SHOTS < (uint32_t)(MAX_BURST_SHOTS - 1) * 100U)
+                              ? STATE_BURST
+                              : STATE_BURST_OVERHEAT))
+      break;
 
     break;
   }
 
   //////////////////////////////////////////////
   case STATE_CAPTURE:
-
   {
-    switch (stageFlag)
-    {
-
-    case 0: // Initiate this wrist blaster State :
+    if (!stateInitialized) // Initiate this wrist blaster State :
     {
       DEBUG_PRINTLN("STATE_CAPTURE");
+      DEBUG_PRINTLN();
 
       //  Specifics initializations :
       fireType = CAPTURE; // tail and reboot to STATE_CYCLOTRON_ON
 
       // Standard initializers
-      stageFlag = stateInitialization(); // End state initialization when stageFlag is 1
+      stateInitialized = stateInitialization(); // End state initialization when stateInitialized is 1
 
-      DEBUG_PRINTLN();
+      // Wait for the DFPlayer command delay before running this state.
       break;
     }
 
-    case 1: // This wrist blaster state loop :
+    //  Specifics state mechanics :
+    heatLevelRisingCapture();
+
+    // Wrist blaster state exits by priority :
+    if (checkIfSwitchExit(SWmain.isReleased(), STATE_ALL_ON_TO_OFF)) // Check if Main Switch is OFF, goes into main shutting state STATE_ALL_ON_TO_OFF
+      break;
+
+    if (checkIfSwitchExit(SWcyclotron.isReleased(), STATE_CYCLOTRON_ON_TO_OFF)) // Check if Cyclotron Switch is OFF, goes into cyclotron shutting state STATE_CYCLOTRON_ON_TO_OF
+      break;
+
+    if (checkIfSwitchExit(SWactivate.isPressed(), STATE_CYCLOTRON_ON_TO_FULL)) // Activate switch is ON: leave Capture and ramp to FULL power
+      break;
+
+    // Wrist blaster going into tail before overheat warning:
+    if (checkIfSwitchExit(PBfire.isReleased(), STATE_CAPTURE_TAIL))
+      break;
+
+    // Handle capture warning transition when heat level is getting high
+    if (now - stateStartTime >= DURATION_CAPTURE_TAKEOFF_RAMP &&
+        heatLevel > getCaptureScaledDuration())
     {
-      // Enable/disable the track looping play mode if required, if updated break the loop to check command delay again
-      // Must be called after the play command in the initialization stage 0...
-      if (checkPlayModeForThisState())
-        break;
-
-      //  Specifics state mechanics :
-      heatLevelRisingCapture();
-
-      // Wrist blaster state exits by priority :
-      if (checkIfSwitchExit(SWmain.isOFF(), STATE_ALL_ON_TO_OFF)) // Check if Main Switch is OFF, goes into main shutting state STATE_ALL_ON_TO_OFF
-        break;
-
-      if (checkIfSwitchExit(SWcyclotron.isOFF(), STATE_CYCLOTRON_ON_TO_OFF)) // Check if Cyclotron Switch is OFF, goes into cyclotron shutting state STATE_CYCLOTRON_ON_TO_OF
-        break;
-
-      if (checkIfSwitchExit(SWactivate.isON(), STATE_CYCLOTRON_ON_TO_FULL)) // Check if Cyclotron Activate Switch is OFF, goes into cyclotron returning to normal STATE_CYCLOTRON_FULL_TO_ON
-        break;
-
-      // Wrist blaster going into tail before overheat warning:
-      if (checkIfSwitchExit(PBfire.isOFF(), STATE_CAPTURE_TAIL))
-        break;
-
-      // Handle capture warning transition when heat level is getting high
-      if (currentTime - stateStartTime >= DURATION_CAPTURE_TAKEOFF_RAMP &&
-          heatLevel > getCaptureScaledDuration())
-      {
-        WBstate = STATE_CAPTURE_WARNING_OVERHEAT;
-        stageFlag = 0;
-        break;
-      }
+      enterState(STATE_CAPTURE_OVERHEAT);
       break;
-    }
-    default:
-    {
-      DEBUG_PRINT("Invalid stageFlag in Main Loop State Machine, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
-      break;
-    }
     }
     break;
   }
 
-    //////////////////////////////////////////////
-  case STATE_CAPTURE_WARNING_OVERHEAT:
-
+  //////////////////////////////////////////////
+  case STATE_CAPTURE_OVERHEAT:
   {
-    switch (stageFlag)
+    if (!stateInitialized) // WARNING initialisation :
     {
-
-    case 0: // WARNING initialisation :
-    {
-      DEBUG_PRINTLN("STATE_CAPTURE_WARNING_OVERHEAT");
+      DEBUG_PRINTLN("STATE_CAPTURE_OVERHEAT");
 
       //  Specifics initializations :
       fireType = CAPTURE; // tail and reboot to STATE_CYCLOTRON_ON
+
+      // Standard initializers
+      stateInitialized = stateInitialization(); // End state initialization when stateInitialized is 1
+      phaseStartTime = now;
 #ifdef SMOKE_FEATURES_ENABLED
       smoker.smoke(ENABLE); // Put the smoke and pump on, but not the fan
 #endif
-
-      // Standard initializers
-      stageFlag = stateInitialization(); // End state initialization when stageFlag is 1
-
-      DEBUG_PRINTLN();
+      phaseInitialized = true;
+      // Wait for the DFPlayer command delay before running this state.
       break;
     }
 
-    case 1: // WARNING :
-
-    { // Enable/disable the track looping play mode if required, if updated break the loop to check command delay again
-      // Must be called after the play command in the initialization stage 0...
-      if (checkPlayModeForThisState())
-        break;
+    switch (overheatPhase)
+    {
+    case PHASE_WARNING:
+    {
+      if (!phaseInitialized)
+      {
+        DEBUG_PRINTLN("PHASE_WARNING");
+        phaseStartTime = now;    // Record the start time of the phase
+        phaseInitialized = true; // Mark the phase as initialized
+      }
 
       //  Specifics state mechanics :
       heatLevelRisingCapture();
 
       // Wrist blaster state exits by priority :
 
-      if (checkIfSwitchExit(SWmain.isOFF(), STATE_ALL_ON_TO_OFF)) // Check if Main Switch is OFF, goes into main shutting state STATE_ALL_ON_TO_OFF
+      if (checkIfSwitchExit(SWmain.isReleased(), STATE_ALL_ON_TO_OFF)) // Check if Main Switch is OFF, goes into main shutting state STATE_ALL_ON_TO_OFF
         break;
 
-      if (checkIfSwitchExit(SWcyclotron.isOFF(), STATE_CYCLOTRON_ON_TO_OFF)) // Check if Cyclotron Switch is OFF, goes into cyclotron shutting state STATE_CYCLOTRON_ON_TO_OF
+      if (checkIfSwitchExit(SWcyclotron.isReleased(), STATE_CYCLOTRON_ON_TO_OFF)) // Check if Cyclotron Switch is OFF, goes into cyclotron shutting state STATE_CYCLOTRON_ON_TO_OF
         break;
 
-      if (checkIfSwitchExit(SWactivate.isON(), STATE_CYCLOTRON_ON_TO_FULL)) // Check if Cyclotron Activate Switch is OFF, goes into cyclotron returning to normal STATE_CYCLOTRON_FULL_TO_ON
+      if (checkIfSwitchExit(SWactivate.isPressed(), STATE_CYCLOTRON_ON_TO_FULL)) // Activate switch is ON: leave the warning and ramp to FULL power
         break;
 
       // Wrist blaster going into tail before overheat warning:
-      if (checkIfSwitchExit(PBfire.isOFF(), STATE_CAPTURE_TAIL))
+      if (checkIfSwitchExit(PBfire.isReleased(), STATE_CAPTURE_TAIL))
       {
 #ifdef SMOKE_FEATURES_ENABLED
         smoker.smoke(DISABLE, DISABLE_FAN);
@@ -1346,41 +1113,54 @@ void loop()
         break;
       }
 
-      if (currentTime - stateStartTime >= getDuration() - DURATION_CAPTURE_OVERHEAT)
+      if (now - phaseStartTime >= CAPTURE_OVERHEAT_PHASE_LENGTH[PHASE_WARNING])
       {
-        stageFlag = 2;
+        overheatPhase = PHASE_OVERHEAT; // Start with the overheat phase
+        phaseInitialized = false;       // Next phase needs initialization
         break;
       }
       break;
     }
 
-    case 2: // CAPTURE OVERHEAT initialisation
+    case PHASE_OVERHEAT:
     {
-      DEBUG_PRINTLN("STATE_CAPTURE_OVERHEAT");
-
-//  Specifics initializations :
+      if (!phaseInitialized)
+      {
+        DEBUG_PRINTLN("PHASE_OVERHEAT");
+        // Specifics initializations :
 #ifdef SMOKE_FEATURES_ENABLED
-      smoker.startBurst(DURATION_CAPTURE_OVERHEAT, WITH_FAN); // Put the smoke, pump and fan ON for the state duration
+        smoker.startBurst(CAPTURE_OVERHEAT_PHASE_LENGTH[PHASE_OVERHEAT], WITH_FAN); // Run smoke, pump, and fan for the overheat phase
 #endif
+        phaseStartTime = now;    // Record the start time of the phase
+        phaseInitialized = true; // Mark the phase as initialized
+      }
 
-      // Standard initializers
-      stateStartTime = currentTime;
-      stageFlag = 3;
-
-      DEBUG_PRINTLN();
+      if (now - phaseStartTime >= CAPTURE_OVERHEAT_PHASE_LENGTH[PHASE_OVERHEAT])
+      {
+        overheatPhase = PHASE_COOLING; // Start with the cooling phase
+        phaseInitialized = false;      // Next phase needs initialization
+        break;
+      }
       break;
     }
 
-    case 3: // CAPTURE OVERHEAT
+    case PHASE_COOLING:
     {
+      if (!phaseInitialized)
+      {
+        DEBUG_PRINTLN("PHASE_COOLING");
+        DEBUG_PRINTLN();
+        phaseStartTime = now;    // Record the start time of the phase
+        phaseInitialized = true; // Mark the phase as initialized
+      }
       //  Specifics state mechanics :
       heatLevel = 0; // Venting and cooling done...
 
       // Determine next state
-      BlasterState next = SWmain.isOFF()        ? STATE_POWER_ON_TO_OFF
-                          : SWcyclotron.isOFF() ? STATE_POWER_ON // Cyclotron switch is off, goes into POWER ON
-                          : SWactivate.isON()   ? STATE_CYCLOTRON_ON_TO_FULL
-                                                : STATE_CYCLOTRON_OFF_TO_ON; // venting is done, reboot to cyclotron ON or full power
+      BlasterState next = SWmain.isReleased()        ? STATE_POWER_ON_TO_OFF
+                          : SWcyclotron.isReleased() ? STATE_POWER_ON // Cyclotron switch is off, goes into POWER ON
+                          : SWactivate.isPressed()   ? STATE_CYCLOTRON_ON_TO_FULL
+                                                     : STATE_CYCLOTRON_OFF_TO_ON; // venting is done, reboot to cyclotron ON or full power
 
       // Check if overheating tail track is done
       if (checkIfTrackDoneExit(next))
@@ -1392,93 +1172,69 @@ void loop()
       }
       break;
     }
+
     default:
     {
-      DEBUG_PRINT("Invalid stageFlag in Main Loop State Machine, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
+      DEBUG_PRINTLN("WRONG PHASE, recovering to PHASE_WARNING");
+      DEBUG_PRINTLN();
+      overheatPhase = PHASE_WARNING;
+      phaseInitialized = false;
       break;
     }
-    }
+    } // END of OVERHEAT PHASES SWITCH/CASES
 
     break;
-  }
+  } // End of STATE_CAPTURE_OVERHEAT case
 
-    //////////////////////////////////////////////
+  //////////////////////////////////////////////
   case STATE_CAPTURE_TAIL:
   {
-    switch (stageFlag)
-    {
-
-    case 0: // Initiate this wrist blaster State :
+    if (!stateInitialized) // Initiate this wrist blaster State :
     {
       DEBUG_PRINTLN("STATE_CAPTURE_TAIL");
+      DEBUG_PRINTLN();
 
       // Standard initializers
-      stageFlag = stateInitialization(); // End state initialization when stageFlag is 1
+      stateInitialized = stateInitialization(); // End state initialization when stateInitialized is 1
 
-      DEBUG_PRINTLN();
+      // Wait for the DFPlayer command delay before running this state.
       break;
     }
 
-    case 1: // This wrist blaster state loop :
+    //  Specifics state mechanics :
+    heatLevelCooling();
+
+    // Wrist blaster state exits by priority :
+    if (checkIfSwitchExit(SWmain.isReleased(), STATE_ALL_ON_TO_OFF)) // Check if Main Switch is OFF, goes into main shutting state STATE_ALL_ON_TO_OFF
+      break;
+
+    // if (checkIfSwitchExit(SWcyclotron.isReleased(), STATE_CYCLOTRON_ON_TO_OFF)) // Check if Cyclotron Switch is OFF, goes into cyclotron shutting state STATE_CYCLOTRON_ON_TO_OF
+    //   break;
+
+    // Check if tail track is done
+    if (!player.isPlaying()) // || (now - stateStartTime) >= TRACK_LENGTH[WBstate])
     {
-      // Enable/disable the track looping play mode if required, if updated break the loop to check command delay again
-      // Must be called after the play command in the initialization stage 0...
-      if (checkPlayModeForThisState())
-        break;
-
-      //  Specifics state mechanics :
-      heatLevelCooling();
-
-      // Wrist blaster state exits by priority :
-      if (checkIfSwitchExit(SWmain.isOFF(), STATE_ALL_ON_TO_OFF)) // Check if Main Switch is OFF, goes into main shutting state STATE_ALL_ON_TO_OFF
-        break;
-
-      // if (checkIfSwitchExit(SWcyclotron.isOFF(), STATE_CYCLOTRON_ON_TO_OFF)) // Check if Cyclotron Switch is OFF, goes into cyclotron shutting state STATE_CYCLOTRON_ON_TO_OF
-      //   break;
-
-      // Check if tail track is done
-      if (!player.isPlaying()) // || (currentTime - stateStartTime) >= TRACK_LENGTH[WBstate])
-      {
-        // If tailing is done goes into POWER OFF, or into cyclotron ON or FULL depending of the fireng type
-        WBstate = fireType ? STATE_CYCLOTRON_FULL_POWER : STATE_CYCLOTRON_ON;
-        stageFlag = 0;
-        break;
-      }
-
-      // Check if Firing Button pushed, goes into capture firing ramp state STATE_CAPTURE
-      if (checkIfSwitchExit(PBfire.isON(),
-                            (heatLevel < getCaptureScaledDuration())
-                                ? STATE_CAPTURE
-                                : STATE_CAPTURE_WARNING_OVERHEAT))
-        break;
+      // When the tail ends, return to regular or full cyclotron power according to the firing type.
+      enterState(fireType ? STATE_CYCLOTRON_FULL_POWER : STATE_CYCLOTRON_ON);
       break;
     }
-    default:
-    {
-      DEBUG_PRINT("Invalid stageFlag in Main Loop State Machine, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
+
+    // Check if Firing Button pushed, goes into capture firing ramp state STATE_CAPTURE
+    if (checkIfSwitchExit(PBfire.isPressed(),
+                          (heatLevel < getCaptureScaledDuration())
+                              ? STATE_CAPTURE
+                              : STATE_CAPTURE_OVERHEAT))
       break;
-    }
-    }
     break;
   }
 
     //////////////////////////////////////////////
   case STATE_BURST:
   {
-    switch (stageFlag)
-    {
-
-    case 0: // Initiate this wrist blaster State :
+    if (!stateInitialized) // Initiate this wrist blaster State :
     {
       DEBUG_PRINTLN("STATE_BURST");
+      DEBUG_PRINTLN();
 
       //  Specifics initializations :
       fireType = BURST; // tail and reboot to STATE_CYCLOTRON_FULL_POWER
@@ -1487,93 +1243,75 @@ void loop()
       heatLevelRisingBurst(); // increment heatLevel for this shot
 
       // Standard initializers
-      stageFlag = stateInitialization(); // End state initialization when stageFlag is 1
+      stateInitialized = stateInitialization(); // End state initialization when stateInitialized is 1
+      phaseStartTime = now;
+      phaseInitialized = true;
 
-      DEBUG_PRINTLN();
+      // Wait for the DFPlayer command delay before running this state.
       break;
     }
 
-    case 1: // This wrist blaster state loop :
-    {       // Enable/disable the track looping play mode if required, if updated break the loop to check command delay again
-      // Must be called after the play command in the initialization stage 0...
-      if (checkPlayModeForThisState())
-        break;
-
-      // Wrist blaster state exits by priority :
-      if (checkIfSwitchExit(SWmain.isOFF(), STATE_ALL_ON_TO_OFF)) // Check if Main Switch is OFF, goes into main shutting state STATE_ALL_ON_TO_OFF
-        break;
-
-      if (checkIfSwitchExit(SWcyclotron.isOFF(), STATE_CYCLOTRON_ON_TO_OFF)) // Check if Cyclotron Switch is OFF, goes into cyclotron shutting state STATE_CYCLOTRON_ON_TO_OF
-        break;
-
-      if (checkIfSwitchExit(SWactivate.isOFF(), STATE_CYCLOTRON_FULL_TO_ON)) // Check if Cyclotron Activate Switch is OFF, goes into cyclotron returning to normal STATE_CYCLOTRON_FULL_TO_ON
-        break;
-
-      if (currentTime - stateStartTime >= getDuration() - DURATION_BURST_TAIL)
+    switch (burstPhase)
+    {
+    case BURST_PHASE_FIRING:
+    {
+      if (!phaseInitialized)
       {
-        stageFlag = 2;
+        DEBUG_PRINTLN("PHASE_FIRING");
+        phaseStartTime = now;
+        phaseInitialized = true;
+      }
+
+      if (checkIfSwitchExit(SWmain.isReleased(), STATE_ALL_ON_TO_OFF))
         break;
+      if (checkIfSwitchExit(SWcyclotron.isReleased(), STATE_CYCLOTRON_ON_TO_OFF))
+        break;
+      if (checkIfSwitchExit(SWactivate.isReleased(), STATE_CYCLOTRON_FULL_TO_ON))
+        break;
+      if (now - phaseStartTime >= BURST_PHASE_LENGTH[BURST_PHASE_FIRING])
+      {
+        burstPhase = BURST_PHASE_TAIL;
+        phaseInitialized = false;
       }
       break;
     }
-
-    case 2: // Initiate TAIL :
+    case BURST_PHASE_TAIL:
     {
-      DEBUG_PRINTLN("STATE_BURST_TAIL");
+      if (!phaseInitialized)
+      {
+        DEBUG_PRINTLN("PHASE_TAIL");
+        DEBUG_PRINTLN();
+        phaseStartTime = now;
+        phaseInitialized = true;
+      }
 
-      // Standard initializers
-      // None continue the burst track but with tail lights effects
-
-      stageFlag = 3;
-
-      DEBUG_PRINTLN();
-      break;
-    }
-
-    case 3: // TAIL :
-    {
-      // Wrist blaster state exits by priority :
-      if (checkIfSwitchExit(SWmain.isOFF(), STATE_ALL_ON_TO_OFF)) // Check if Main Switch is OFF, goes into main shutting state STATE_ALL_ON_TO_OFF
+      if (checkIfSwitchExit(SWmain.isReleased(), STATE_ALL_ON_TO_OFF))
         break;
-
-      // Check if tail track is done
       if (!player.isPlaying())
       {
-        // If tailing is done goes into cyclotron ON or FULL depending of the fireng type
-        WBstate = fireType ? STATE_CYCLOTRON_FULL_POWER : STATE_CYCLOTRON_ON;
-        stageFlag = 0;
+        enterState(fireType ? STATE_CYCLOTRON_FULL_POWER : STATE_CYCLOTRON_ON);
         break;
       }
-
-      // Check if Firing Button pushed, goes into capture firing ramp state STATE_BURST
-      if (PBfire.isON())
+      if (PBfire.isPressed())
       {
-        WBstate = (heatLevel < (MAX_BURST_SHOTS - 1) * 100.0 / MAX_BURST_SHOTS) ? STATE_BURST : STATE_BURST_OVERHEAT;
-        stageFlag = 0;
-        break;
+        enterState(((uint32_t)heatLevel * MAX_BURST_SHOTS < (uint32_t)(MAX_BURST_SHOTS - 1) * 100U) ? STATE_BURST : STATE_BURST_OVERHEAT);
       }
       break;
     }
     default:
-    {
-      DEBUG_PRINT("Invalid stageFlag in Main Loop State Machine, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
+      DEBUG_PRINTLN("WRONG PHASE, resetting to FIRING phase");
+      DEBUG_PRINTLN();
+      burstPhase = BURST_PHASE_FIRING;
+      phaseInitialized = false;
       break;
-    }
     }
     break;
   }
 
-    //////////////////////////////////////////////
+  //////////////////////////////////////////////
   case STATE_BURST_OVERHEAT:
   {
-    switch (stageFlag)
-    {
-
-    case 0: // Initiate this wrist blaster State :
+    if (!stateInitialized) // Initiate this wrist blaster State :
     {
       DEBUG_PRINTLN("STATE_BURST_OVERHEAT");
 
@@ -1588,164 +1326,137 @@ void loop()
 #endif
 
       // Standard initializers
-      stageFlag = stateInitialization(); // End state initialization when stageFlag is 1
+      stateInitialized = stateInitialization(); // End state initialization when stateInitialized is 1
+      phaseStartTime = now;
+      phaseInitialized = true;
 
-      DEBUG_PRINTLN();
+      // Wait for the DFPlayer command delay before running this state.
       break;
     }
-
-    case 1: // This wrist blaster state loop :
+    switch (overheatPhase)
     {
-      // Enable/disable the track looping play mode if required, if updated break the loop to check command delay again
-      // Must be called after the play command in the initialization stage 0...
-      if (checkPlayModeForThisState())
-        break;
-
-      // Wrist blaster state exits by priority :
-      if (checkIfSwitchExit(SWmain.isOFF(), STATE_ALL_ON_TO_OFF)) // Check if Main Switch is OFF, goes into main shutting state STATE_ALL_ON_TO_OFF
-        break;
-
-      if (checkIfSwitchExit(SWcyclotron.isOFF(), STATE_CYCLOTRON_ON_TO_OFF)) // Check if Cyclotron Switch is OFF, goes into cyclotron shutting state STATE_CYCLOTRON_ON_TO_OF
-        break;
-
-      if (checkIfSwitchExit(SWactivate.isOFF(), STATE_CYCLOTRON_FULL_TO_ON)) // Check if Cyclotron Activate Switch is OFF, goes into cyclotron returning to normal STATE_CYCLOTRON_FULL_TO_ON
-        break;
-
-      if (currentTime - stateStartTime >= getDuration() - DURATION_BURST_OVERHEAT)
+    case PHASE_WARNING:
+    {
+      if (!phaseInitialized)
       {
-        stageFlag = 2;
+        DEBUG_PRINTLN("PHASE_WARNING");
+        phaseStartTime = now;
+        phaseInitialized = true;
+      }
+
+      if (checkIfSwitchExit(SWmain.isReleased(), STATE_ALL_ON_TO_OFF))
         break;
+
+      if (checkIfSwitchExit(SWcyclotron.isReleased(), STATE_CYCLOTRON_ON_TO_OFF))
+        break;
+
+      if (checkIfSwitchExit(SWactivate.isReleased(), STATE_CYCLOTRON_FULL_TO_ON))
+        break;
+
+      if (now - phaseStartTime >= BURST_OVERHEAT_PHASE_LENGTH[PHASE_WARNING])
+      {
+        overheatPhase = PHASE_OVERHEAT;
+        phaseInitialized = false;
       }
       break;
     }
 
-    case 2: // Initiate this wrist blaster State :
+    case PHASE_OVERHEAT:
     {
-      DEBUG_PRINTLN("STATE_BURST_OVERHEAT");
+      if (!phaseInitialized)
+      {
+        DEBUG_PRINTLN("PHASE_OVERHEAT");
 #ifdef SMOKE_FEATURES_ENABLED
-      smoker.smoke(ENABLE, ENABLE_FAN);
+        smoker.startBurst(BURST_OVERHEAT_PHASE_LENGTH[PHASE_OVERHEAT], WITH_FAN);
 #endif
+        phaseStartTime = now;
+        phaseInitialized = true;
+      }
 
-      // Standard initializers
-      stageFlag = 3;
-
-      DEBUG_PRINTLN();
+      if (now - phaseStartTime >= BURST_OVERHEAT_PHASE_LENGTH[PHASE_OVERHEAT])
+      {
+        overheatPhase = PHASE_COOLING;
+        phaseInitialized = false;
+      }
       break;
     }
 
-    case 3: // This wrist blaster state loop :
+    case PHASE_COOLING:
     {
-      //  Specifics state mechanics :
-      heatLevel = 0; // Venting and cooling done...
-
-      // Determine next state
-      BlasterState next = SWmain.isOFF()        ? STATE_POWER_ON_TO_OFF
-                          : SWcyclotron.isOFF() ? STATE_POWER_ON // Cyclotron switch is off, goes into POWER ON
-                          : SWactivate.isON()   ? STATE_CYCLOTRON_ON_TO_FULL
-                                                : STATE_CYCLOTRON_OFF_TO_ON; // venting is done, reboot to cyclotron ON or full power
-
-      // Check if overheating tail track is done
+      if (!phaseInitialized)
+      {
+        DEBUG_PRINTLN("PHASE_COOLING");
+        DEBUG_PRINTLN();
+        phaseStartTime = now;
+        phaseInitialized = true;
+      }
+      heatLevel = 0;
+      const BlasterState next = SWmain.isReleased()        ? STATE_POWER_ON_TO_OFF
+                                : SWcyclotron.isReleased() ? STATE_POWER_ON
+                                : SWactivate.isPressed()   ? STATE_CYCLOTRON_ON_TO_FULL
+                                                           : STATE_CYCLOTRON_OFF_TO_ON;
       if (checkIfTrackDoneExit(next))
       {
 #ifdef SMOKE_FEATURES_ENABLED
         smoker.smoke(DISABLE, DISABLE_FAN);
 #endif
-        break;
       }
       break;
     }
+
     default:
     {
-      DEBUG_PRINT("Invalid stageFlag in Main Loop State Machine, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
+      DEBUG_PRINTLN("WRONG PHASE, recovering to PHASE_WARNING");
+      DEBUG_PRINTLN();
+      overheatPhase = PHASE_WARNING;
+      phaseInitialized = false;
       break;
     }
     }
     break;
   }
-    //////////////////////////////////////////////
+
+  //////////////////////////////////////////////
   case STATE_ALL_ON_TO_OFF:
   {
-    switch (stageFlag)
-    {
-    case 0: // Initiate this wrist blaster State :
+    if (!stateInitialized) // Initiate this wrist blaster State :
     {
       DEBUG_PRINTLN("STATE_ALL_ON_TO_OFF");
-
+      DEBUG_PRINTLN();
 #ifdef SMOKE_FEATURES_ENABLED
       smoker.smoke(DISABLE, DISABLE_FAN);
 #endif
-
       // Standard initializers
-      stageFlag = stateInitialization(); // End state initialization when stageFlag is 1
-
-      DEBUG_PRINTLN();
+      stateInitialized = stateInitialization(); // End state initialization when stateInitialized is 1
+      // Wait for the DFPlayer command delay before running this state.
       break;
     }
 
-    case 1: // This wrist blaster state loop :
-    {
-      // Enable/disable the track looping play mode if required, if updated break the loop to check command delay again
-      // Must be called after the play command in the initialization stage 0...
-      if (checkPlayModeForThisState())
-        break;
+    //  Specifics state mechanics :
+    heatLevelCooling();
 
-      //  Specifics state mechanics :
-      heatLevelCooling();
-
-      // Wrist blaster state exits by priority :
+    // Wrist blaster state exits by priority :
 
 #ifdef POWERCELL_EXIST
-      // With a PowerCell present, keep shutdown non-interruptible:
-      // the PowerCell shutdown animation must complete to finish its internal state transition
-      // before allowing any reboot path.
-      if (checkIfTrackDoneExit(batt.isBattTooLow() ? STATE_LOW_BATT : STATE_POWER_OFF)) // Check if track is ended before going into STATE_POWER_OFF or STATE_LOW_BATT
-        break;
+    // With a PowerCell present, keep shutdown non-interruptible:
+    // the PowerCell shutdown animation must complete to finish its internal state transition
+    // before allowing any reboot path.
+    if (checkIfTrackDoneExit(batt.isBattTooLow() ? STATE_LOW_BATT : STATE_POWER_OFF)) // Check if track is ended before going into STATE_POWER_OFF or STATE_LOW_BATT
+      break;
 #else
-      // Without a PowerCell shutdown sequence to preserve, allow the Main switch
-      // to cancel shutdown and restart immediately.
-      if (checkIfSwitchExit(SWmain.isON(), STATE_POWER_OFF_TO_ON)) // Check if Main Switch is ON, goes into main booting state STATE_POWER_OFF_TO_ON
-        break;
+    // Without a PowerCell shutdown sequence to preserve, allow the Main switch
+    // to cancel shutdown and restart immediately.
+    if (checkIfSwitchExit(SWmain.isPressed(), STATE_POWER_OFF_TO_ON)) // Check if Main Switch is ON, goes into main booting state STATE_POWER_OFF_TO_ON
+      break;
 
-      // If there is no restart request, complete the regular shutdown path.
-      if (checkIfTrackDoneExit(STATE_POWER_OFF)) // Check if track is ended before going into STATE_POWER_OFF
-        break;
+    // If there is no restart request, complete the regular shutdown path.
+    if (checkIfTrackDoneExit(STATE_POWER_OFF)) // Check if track is ended before going into STATE_POWER_OFF
+      break;
 #endif
-
-      break;
-    }
-
-      //////////////////////////////////////////////
-    default:
-    {
-      DEBUG_PRINT("Invalid stageFlag in Main Loop State Machine, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
-      break;
-    }
-    }
-    break;
-  }
-
-  default:
-  {
-    DEBUG_PRINT("Invalid WBstate, recovering: ");
-    DEBUG_PRINTLN(WBstate);
-    WBstate = SWmain.isON() ? STATE_POWER_ON_TO_OFF : STATE_POWER_OFF;
-    stageFlag = 0;
     break;
   }
   }
-
-  // END_SEQ Actions for different blaster states
-  ///////////////////////////////////////////////////////////////
 }
-/********************** END_SEQ MAIN LOOP *******************/
 
 //////////////////////////////////////////////////////////////////////////
 ///////////////////// *** HELPER FUNCTIONS *** ///////////////////////////
@@ -1754,922 +1465,1399 @@ void loop()
 /*******************************************/
 /*   ANIMATIONS functions in wrist blaster states   */
 /*******************************************/
+// Scheme functions run before the main state handler on every loop. While an
+// initialization flag is false, each device configures its new state or phase
+// effect and stops there. Keep these guards and their break even when no device
+// setup is required: they make every scheme wait for the main state machine to
+// complete the shared transition, keeping all effects synchronized. Runtime
+// animation updates begin on the next loop.
 void getLEDsSchemeForThisState()
 {
-  // Some sequences need to be initialized with wrist blaster state, stageFlag is used to know if wrist blaster state is in initialization
+  getIndicatorScheme();
+  getVentScheme();
+  getPanelBarMeterScheme();
+  getCyclotronScheme();
+  getFiringRodScheme();
+}
 
+void getIndicatorScheme()
+{
+  getSlowBlowIndicatorScheme();
+  getTopWhiteIndicatorScheme();
+  getTopYellowIndicatorScheme();
+  getFrontOrangeIndicatorScheme();
+  getFireButtonIndicatorScheme();
+}
+
+void getSlowBlowIndicatorScheme()
+{
   switch (WBstate)
   {
   case STATE_ZERO:
-    break;
-
   case STATE_LOW_BATT:
+  case STATE_POWER_OFF:
   {
-    switch (stageFlag)
+    if (!stateInitialized)
     {
-    case 0:
-    {
-      clearAllLights(); // clear cyclotron, bar meter, vent, firing jewel and cyclotron LEDS
-      topWhiteIndicator.initParam(RED, 50, MEDIUM_BLINK_SP);
+      slowBlowIndicator.clear();
       break;
-    }
-    case 1:
-    {
-      topWhiteIndicator.blink(DISABLE);
-      break;
-    }
-    default:
-    {
-      DEBUG_PRINT("Invalid stageFlag in LEDs Scheme, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
-      break;
-    }
     }
     break;
   }
 
   case STATE_PARTY_MODE:
-
-  {
-    switch (stageFlag)
-    {
-    case 0:
-    {
-      /* Initialize animations/schemes : */
-      /*slowBlowIndicator   */ slowBlowIndicator.initParam(RED, 100);
-      /*topWhiteIndicator   */ topWhiteIndicator.initParam(WHITE, 75);
-      /*topYellowIndicator  */ topYellowIndicator.initParam(YELLOW, 100);
-      /*frontOrangeIndicator*/ frontOrangeIndicator.clear();
-      /*fireButtonSingleLed */ fireButtonSingleLed.on();
-      /*vent                */ vent.clear();
-      /*panelBarMeter            */ panelBarMeter.partyModeInit();
-      /*cyclotron           */ cyclotron.rampInit(CYC_ON, 500); // Finish party mode in sequence if not done
-      /*firingRod           */ firingRod.clear();
-      break;
-    }
-    case 1:
-    { /*slowBlowIndicator   */
-      slowBlowIndicator.solid();
-      /*topWhiteIndicator   */ topWhiteIndicator.flash(517); // 116 bpm : 60 000 / 116 = 517ms
-      /*topYellowIndicator  */ topYellowIndicator.solid();
-      /*frontOrangeIndicator*/ // Cleared
-      /*fireButtonSingleLed */ // ON
-      /*vent                */ // Cleared
-      /*panelBarMeter            */ panelBarMeter.partyMode();
-      /*cyclotron           */ cyclotron.ramp(); // Finish party mode in sequence if not done
-      /*firingRod           */                   // Cleared
-      break;
-    }
-    default:
-    {
-      DEBUG_PRINT("Invalid stageFlag in LEDs Scheme, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
-      break;
-    }
-    }
-    break;
-  }
-
   case STATE_PARTY_MODE_IN:
-  {
-    switch (stageFlag)
-    {
-    case 0:
-    { // Initialize animations/schemes :
-      /*slowBlowIndicator   */ slowBlowIndicator.initParam(RED, 100);
-      /*topWhiteIndicator   */ topWhiteIndicator.initParam(WHITE, 75, FAST_BLINK_SP);
-      /*topYellowIndicator  */ topYellowIndicator.initParam(YELLOW, 100);
-      /*frontOrangeIndicator*/ frontOrangeIndicator.clear();
-      /*fireButtonSingleLed */ fireButtonSingleLed.blinkInit(MEDIUM_BLINK_SP);
-      /*vent                */ vent.clear();
-      /*panelBarMeter            */ panelBarMeter.fillUpEmptyDownOnceInit(getDuration());
-      /*cyclotron           */ cyclotron.rampInit(CYC_ON, getDuration());
-      /*firingRod           */ firingRod.clear();
-      break;
-    }
-    case 1:
-    { /*slowBlowIndicator   */
-      slowBlowIndicator.solid();
-      /*topWhiteIndicator   */ topWhiteIndicator.blink(DISABLE);
-      /*topYellowIndicator  */ topYellowIndicator.solid();
-      /*frontOrangeIndicator*/ // Cleared
-      /*fireButtonSingleLed */ fireButtonSingleLed.blink();
-      /*vent                */ // Cleared
-      /*panelBarMeter            */ panelBarMeter.fillUpEmptyDownOnce();
-      /*cyclotron           */ cyclotron.ramp();
-      /*firingRod           */ // Cleared
-      break;
-    }
-    default:
-    {
-      DEBUG_PRINT("Invalid stageFlag in LEDs Scheme, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
-      break;
-    }
-    }
-    break;
-  }
-
   case STATE_PARTY_MODE_OUT:
+  case STATE_POWER_ON:
+  case STATE_CYCLOTRON_OFF_TO_ON:
+  case STATE_CYCLOTRON_ON_TO_OFF:
+  case STATE_CYCLOTRON_ON:
+  case STATE_CYCLOTRON_ON_TO_FULL:
+  case STATE_CYCLOTRON_FULL_TO_ON:
+  case STATE_CYCLOTRON_FULL_POWER:
+  case STATE_CAPTURE:
+  case STATE_CAPTURE_TAIL:
   {
-    switch (stageFlag)
+    if (!stateInitialized)
     {
-    case 0:
-    {
-      /*slowBlowIndicator   */ slowBlowIndicator.initParam(RED, 100);
-      /*topWhiteIndicator   */ topWhiteIndicator.initParam(WHITE, 75, FAST_BLINK_SP);
-      /*topYellowIndicator  */ topYellowIndicator.initParam(YELLOW, 100);
-      /*frontOrangeIndicator*/ frontOrangeIndicator.clear();
-      /*fireButtonSingleLed */ fireButtonSingleLed.blinkInit(MEDIUM_BLINK_SP);
-      /*vent                */ vent.clear();
-      /*panelBarMeter            */ panelBarMeter.fillUpFastEmptyDownSlowOnceInit(getDuration(), ENABLE);
-      /*cyclotron           */ cyclotron.rampInit(CYC_OFF, getDuration());
-      /*firingRod           */ firingRod.clear();
+      slowBlowIndicator.initParam(RED, 100);
       break;
     }
-    case 1:
-    { /*slowBlowIndicator   */
-      slowBlowIndicator.solid();
-      /*topWhiteIndicator   */ topWhiteIndicator.blink(DISABLE);
-      /*topYellowIndicator  */ topYellowIndicator.solid();
-      /*frontOrangeIndicator*/ // Cleared
-      /*fireButtonSingleLed */ fireButtonSingleLed.blink();
-      /*vent                */ // Cleared
-      /*panelBarMeter            */ panelBarMeter.fillUpFastEmptyDownSlowOnce();
-      /*cyclotron           */ cyclotron.ramp();
-      /*firingRod           */ // Cleared
-      break;
-    }
-    default:
-    {
-      DEBUG_PRINT("Invalid stageFlag in LEDs Scheme, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
-      break;
-    }
-    }
-    break;
-  }
-
-  case STATE_POWER_OFF:
-  {
-    switch (stageFlag)
-    {
-    case 0:
-    {
-      clearAllLights(); // clear cyclotron, bar meter, vent, firing jewel and cyclotron LEDS
-#ifdef SMOKE_FEATURES_ENABLED
-      topWhiteIndicator.initParam(smoker.enable() ? GREEN : RED, 50);
-#endif
-      break;
-    }
-    case 1:
-    {
-      if (PBfire.isOFF())
-        topWhiteIndicator.flash(5000); // set LED_INDEX_TOP_WHITE led green flashing
-      break;
-    }
-    default:
-    {
-      DEBUG_PRINT("Invalid stageFlag in LEDs Scheme, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
-      break;
-    }
-    }
+    slowBlowIndicator.solid();
     break;
   }
 
   case STATE_POWER_OFF_TO_ON:
   {
-    switch (stageFlag)
+    if (!stateInitialized)
     {
-    case 0:
-    {
-      topWhiteIndicator.clear();
       slowBlowIndicator.initParam(RED, 100, FAST_BLINK_SP);
       break;
     }
-    case 1:
-    {
-      slowBlowIndicator.blink(DISABLE);
-      break;
-    }
-    default:
-    {
-      DEBUG_PRINT("Invalid stageFlag in LEDs Scheme, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
-      break;
-    }
-    }
+    slowBlowIndicator.blink(DISABLE);
     break;
   }
 
   case STATE_POWER_ON_TO_OFF:
+  case STATE_ALL_ON_TO_OFF:
   {
-    switch (stageFlag)
+    if (!stateInitialized)
     {
-    case 0:
-    {
-      /*slowBlowIndicator   */ slowBlowIndicator.initParam(BLACK, 100, SOLID, getDuration());
-      /*topWhiteIndicator   */ topWhiteIndicator.initParam(WHITE, 0, SOLID, getDuration());
-      /*topYellowIndicator  */ topYellowIndicator.initParam(BLACK, 100, SOLID, getDuration());
-      /*frontOrangeIndicator*/ frontOrangeIndicator.clear();
-      /*fireButtonSingleLed */ fireButtonSingleLed.clear();
-      /*vent                */ vent.initParam(WARM_WHITE, 0, 2000);
-      /*panelBarMeter            */ panelBarMeter.clear();
-      /*cyclotron           */ cyclotron.clear();
-      /*firingRod           */ firingRod.clear();
+      uint16_t duration = getDuration();
+      slowBlowIndicator.initParam(BLACK, 100, SOLID, duration);
       break;
     }
-    case 1:
-    { /*slowBlowIndicator   */
-      slowBlowIndicator.ramp();
-      /*topWhiteIndicator   */ topWhiteIndicator.ramp();
-      /*topYellowIndicator  */ topYellowIndicator.ramp();
-      /*frontOrangeIndicator*/ // Cleared
-      /*fireButtonSingleLed */ // Cleared
-      /*vent                */ vent.ramp();
-      /*panelBarMeter            */ // Cleared
-      /*cyclotron           */      // Cleared
-      /*firingRod           */      // Cleared
-      break;
-    }
-    default:
+    slowBlowIndicator.ramp();
+    break;
+  }
+
+  case STATE_BURST:
+  {
+    switch (burstPhase)
     {
-      DEBUG_PRINT("Invalid stageFlag in LEDs Scheme, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
+    case BURST_PHASE_FIRING:
+      if (!phaseInitialized)
+      {
+        slowBlowIndicator.initParam(RED, 100);
+        break;
+      }
+      slowBlowIndicator.solid();
+      break;
+
+    case BURST_PHASE_TAIL:
+      if (!phaseInitialized)
+      {
+        slowBlowIndicator.initParam(RED, 100);
+        break;
+      }
+      slowBlowIndicator.solid();
       break;
     }
+    break;
+  }
+
+  case STATE_CAPTURE_OVERHEAT:
+  case STATE_BURST_OVERHEAT:
+  {
+    if (!stateInitialized)
+    {
+      slowBlowIndicator.initParam(RED, 100);
+      break;
     }
+    if (!phaseInitialized)
+      break;
+    slowBlowIndicator.solid();
+    break;
+  }
+  }
+}
+
+void getTopWhiteIndicatorScheme()
+{
+  switch (WBstate)
+  {
+  case STATE_ZERO:
+  case STATE_POWER_OFF_TO_ON:
+  {
+    if (!stateInitialized)
+    {
+      topWhiteIndicator.clear();
+      break;
+    }
+    break;
+  }
+
+  case STATE_LOW_BATT:
+  {
+    if (!stateInitialized)
+    {
+      topWhiteIndicator.initParam(RED, 50, MEDIUM_BLINK_SP);
+      break;
+    }
+    topWhiteIndicator.blink(DISABLE);
+    break;
+  }
+
+  case STATE_PARTY_MODE:
+  {
+    if (!stateInitialized)
+    {
+      topWhiteIndicator.initParam(WHITE, 75);
+      break;
+    }
+    topWhiteIndicator.flash(517); // 116 bpm : 60 000 / 116 = 517ms
+    break;
+  }
+
+  case STATE_PARTY_MODE_IN:
+  case STATE_PARTY_MODE_OUT:
+  {
+    if (!stateInitialized)
+    {
+      topWhiteIndicator.initParam(WHITE, 75, FAST_BLINK_SP);
+      break;
+    }
+    topWhiteIndicator.blink(DISABLE);
+    break;
+  }
+
+  case STATE_POWER_OFF:
+    // the indicator behavior when the device is powered off
+    // It flashes to show that the prop is still powered from the battery.
+    // Flash color also indicate if smoke device is enabled : RED = ENABLE, GREEN = DISABLE
+    {
+      if (!stateInitialized)
+      {
+#ifdef SMOKE_FEATURES_ENABLED
+        topWhiteIndicator.initParam(smoker.enable() ? GREEN : RED, 50);
+#else
+        topWhiteIndicator.initParam(GREEN, 50);
+#endif
+        break;
+      }
+      if (PBfire.isReleased())
+        topWhiteIndicator.flash(5000); // set LED_INDEX_TOP_WHITE led green flashing
+      break;
+    }
+
+  case STATE_POWER_ON_TO_OFF:
+  case STATE_ALL_ON_TO_OFF:
+  {
+    if (!stateInitialized)
+    {
+      uint16_t duration = getDuration();
+      topWhiteIndicator.initParam(WHITE, 0, SOLID, duration);
+      break;
+    }
+    topWhiteIndicator.ramp();
     break;
   }
 
   case STATE_POWER_ON:
   {
-    switch (stageFlag)
+    if (!stateInitialized)
     {
-    case 0:
-    {
-      /*slowBlowIndicator   */ slowBlowIndicator.initParam(RED, 100);
-      /*topWhiteIndicator   */ topWhiteIndicator.initParam(WHITE, 75, SLOW_BLINK_SP);
-      /*topYellowIndicator  */ topYellowIndicator.initParam(YELLOW, 255);
-      /*frontOrangeIndicator*/ frontOrangeIndicator.clear();
-      /*fireButtonSingleLed */ fireButtonSingleLed.clear();
-      /*vent                */ vent.clear();
-      /*panelBarMeter            */ panelBarMeter.clear();
-      /*cyclotron           */ cyclotron.clear();
-      /*firingRod           */ firingRod.clear();
+      topWhiteIndicator.initParam(WHITE, 75, SLOW_BLINK_SP);
       break;
     }
-    case 1:
-    { /*slowBlowIndicator   */
-      slowBlowIndicator.solid();
-      /*topWhiteIndicator   */ topWhiteIndicator.blink(DISABLE);
-      /*topYellowIndicator  */ topYellowIndicator.solid();
-      /*frontOrangeIndicator*/      // Cleared
-      /*fireButtonSingleLed */      // Cleared
-      /*vent                */      // Cleared
-      /*panelBarMeter            */ // Cleared
-      /*cyclotron           */      // Cleared
-      /*firingRod           */      // Cleared
-      break;
-    }
-    default:
+    topWhiteIndicator.blink(DISABLE);
+    break;
+  }
+
+  case STATE_CYCLOTRON_OFF_TO_ON:
+  {
+    if (!stateInitialized)
     {
-      DEBUG_PRINT("Invalid stageFlag in LEDs Scheme, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
+      topWhiteIndicator.initParam(WHITE, 75, MEDIUM_BLINK_SP, getDuration());
+      frontOrangeIndicator.initParam(ORANGE, 100, MEDIUM_BLINK_SP, topWhiteIndicator.getPrevBlink(), topWhiteIndicator.getPulse());
       break;
     }
+    topWhiteIndicator.blink(ENABLE_RAMP);
+    break;
+  }
+
+  case STATE_CYCLOTRON_ON_TO_OFF:
+  {
+    if (!stateInitialized)
+    {
+      uint16_t duration = getDuration();
+      topWhiteIndicator.initParam(WHITE, 75, SLOW_BLINK_SP, duration);
+      break;
+    }
+    topWhiteIndicator.blink(ENABLE_RAMP);
+    break;
+  }
+
+  case STATE_CYCLOTRON_ON:
+  case STATE_CAPTURE:
+  case STATE_CAPTURE_TAIL:
+  {
+    if (!stateInitialized)
+    {
+      topWhiteIndicator.initParam(WHITE, 75, MEDIUM_BLINK_SP);
+      break;
+    }
+    topWhiteIndicator.blink(DISABLE_RAMP);
+    break;
+  }
+
+  case STATE_CYCLOTRON_ON_TO_FULL:
+  {
+    if (!stateInitialized)
+    {
+      topWhiteIndicator.initParam(WHITE, 75, FAST_BLINK_SP, getDuration());
+      break;
+    }
+    topWhiteIndicator.blink(ENABLE_RAMP);
+    break;
+  }
+
+  case STATE_CYCLOTRON_FULL_TO_ON:
+  {
+    if (!stateInitialized)
+    {
+      topWhiteIndicator.initParam(WHITE, 75, MEDIUM_BLINK_SP, getDuration());
+      break;
+    }
+    topWhiteIndicator.blink(ENABLE_RAMP);
+    break;
+  }
+
+  case STATE_CYCLOTRON_FULL_POWER:
+  {
+    if (!stateInitialized)
+    {
+      topWhiteIndicator.initParam(WHITE, 75, FAST_BLINK_SP);
+      break;
+    }
+    topWhiteIndicator.blink(DISABLE_RAMP);
+    break;
+  }
+
+  case STATE_BURST:
+  {
+    if (!stateInitialized)
+    {
+      topWhiteIndicator.initParam(WHITE, 75, FAST_BLINK_SP);
+      break;
+    }
+    if (!phaseInitialized)
+      break;
+    topWhiteIndicator.blink(DISABLE_RAMP);
+    break;
+  }
+
+  case STATE_CAPTURE_OVERHEAT:
+  case STATE_BURST_OVERHEAT:
+  {
+    if (!stateInitialized)
+    {
+      topWhiteIndicator.initParam(WHITE, 75, MEDIUM_BLINK_SP);
+      break;
+    }
+    if (!phaseInitialized)
+      break;
+    topWhiteIndicator.blink(DISABLE_RAMP);
+    break;
+  }
+  }
+}
+
+void getTopYellowIndicatorScheme()
+{
+  switch (WBstate)
+  {
+  case STATE_ZERO:
+  case STATE_LOW_BATT:
+  case STATE_POWER_OFF:
+  case STATE_POWER_OFF_TO_ON:
+  {
+    if (!stateInitialized)
+    {
+      topYellowIndicator.clear();
+      break;
+    }
+    break;
+  }
+
+  case STATE_PARTY_MODE:
+  case STATE_PARTY_MODE_IN:
+  case STATE_PARTY_MODE_OUT:
+  case STATE_CYCLOTRON_OFF_TO_ON:
+  case STATE_CYCLOTRON_ON_TO_OFF:
+  case STATE_CYCLOTRON_ON:
+  case STATE_CYCLOTRON_ON_TO_FULL:
+  case STATE_CYCLOTRON_FULL_TO_ON:
+  case STATE_CYCLOTRON_FULL_POWER:
+  case STATE_CAPTURE:
+  case STATE_CAPTURE_TAIL:
+  {
+    if (!stateInitialized)
+    {
+      topYellowIndicator.initParam(YELLOW, 100);
+      break;
+    }
+    topYellowIndicator.solid();
+    break;
+  }
+
+  case STATE_POWER_ON_TO_OFF:
+  case STATE_ALL_ON_TO_OFF:
+  {
+    if (!stateInitialized)
+    {
+      uint16_t duration = getDuration();
+      topYellowIndicator.initParam(BLACK, 100, SOLID, duration);
+      break;
+    }
+    topYellowIndicator.ramp();
+    break;
+  }
+
+  case STATE_POWER_ON:
+  {
+    if (!stateInitialized)
+    {
+      topYellowIndicator.initParam(YELLOW, 255);
+      break;
+    }
+    topYellowIndicator.solid();
+    break;
+  }
+
+  case STATE_BURST:
+  {
+    if (!stateInitialized)
+    {
+      topYellowIndicator.initParam(YELLOW, 100);
+      break;
+    }
+    if (!phaseInitialized)
+      break;
+    topYellowIndicator.solid();
+    break;
+  }
+
+  case STATE_CAPTURE_OVERHEAT:
+  case STATE_BURST_OVERHEAT:
+  {
+    if (!stateInitialized)
+    {
+      topYellowIndicator.initParam(YELLOW, 100, FAST_BLINK_SP, topWhiteIndicator.getPrevBlink(), topWhiteIndicator.getPulse());
+      break;
+    }
+    if (!phaseInitialized)
+      break;
+    topYellowIndicator.blink(DISABLE_RAMP);
+    break;
+  }
+  }
+}
+
+void getFrontOrangeIndicatorScheme()
+{
+  switch (WBstate)
+  {
+  case STATE_ZERO:
+  case STATE_LOW_BATT:
+  case STATE_POWER_OFF:
+  case STATE_POWER_OFF_TO_ON:
+  case STATE_PARTY_MODE:
+  case STATE_PARTY_MODE_IN:
+  case STATE_PARTY_MODE_OUT:
+  case STATE_POWER_ON_TO_OFF:
+  case STATE_POWER_ON:
+  case STATE_ALL_ON_TO_OFF:
+  {
+    if (!stateInitialized)
+    {
+      frontOrangeIndicator.clear();
+      break;
     }
     break;
   }
 
   case STATE_CYCLOTRON_OFF_TO_ON:
   {
-    switch (stageFlag)
+    if (!stateInitialized)
     {
-    case 0:
-    {
-      /*slowBlowIndicator   */ slowBlowIndicator.initParam(RED, 100);
-      /*topWhiteIndicator   */ topWhiteIndicator.initParam(WHITE, 75, MEDIUM_BLINK_SP, getDuration());
-      /*topYellowIndicator  */ topYellowIndicator.initParam(YELLOW, 100);
-      /*frontOrangeIndicator*/ frontOrangeIndicator.initParam(ORANGE, 100, MEDIUM_BLINK_SP, topWhiteIndicator.getPrevBlink(), topWhiteIndicator.getPulse());
-      /*fireButtonSingleLed */ fireButtonSingleLed.blinkInit(FAST_BLINK_SP);
-      /*vent                */ vent.initParam(WARM_WHITE, 50, getDuration());
-      /*panelBarMeter            */ panelBarMeter.fillDownEmptyDownOnceInit(getDuration(), ENABLE);
-      /*cyclotron           */ cyclotron.rampInit(CYC_ON, getDuration());
-      /*firingRod           */ firingRod.clear(); // Just to finish the shootout fade if not finished
+      frontOrangeIndicator.initParam(ORANGE, 100, MEDIUM_BLINK_SP, topWhiteIndicator.getPrevBlink(), topWhiteIndicator.getPulse());
       break;
     }
-    case 1:
-    { /*slowBlowIndicator   */
-      slowBlowIndicator.solid();
-      /*topWhiteIndicator   */ topWhiteIndicator.blink(ENABLE_RAMP);
-      /*topYellowIndicator  */ topYellowIndicator.solid();
-      /*frontOrangeIndicator*/ frontOrangeIndicator.blink(DISABLE_RAMP);
-      /*fireButtonSingleLed */ fireButtonSingleLed.blink();
-      /*vent                */ vent.ramp(); // White, not at full brightness
-      /*panelBarMeter            */ panelBarMeter.fillDownEmptyDownOnce();
-      /*cyclotron           */ cyclotron.ramp();
-      /*firingRod           */ // cleared
-      break;
-    }
-    default:
-    {
-      DEBUG_PRINT("Invalid stageFlag in LEDs Scheme, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
-      break;
-    }
-    }
+    frontOrangeIndicator.blink(DISABLE_RAMP);
     break;
   }
 
   case STATE_CYCLOTRON_ON_TO_OFF:
   {
-    switch (stageFlag)
+    if (!stateInitialized)
     {
-    case 0:
-    {
-      /*slowBlowIndicator   */ slowBlowIndicator.initParam(RED, 100);
-      /*topWhiteIndicator   */ topWhiteIndicator.initParam(WHITE, 75, SLOW_BLINK_SP, getDuration());
-      /*topYellowIndicator  */ topYellowIndicator.initParam(YELLOW, 100);
-      /*frontOrangeIndicator*/ frontOrangeIndicator.initParam(ORANGE, 0, SOLID, getDuration());
-      /*fireButtonSingleLed */ fireButtonSingleLed.blinkInit(FAST_BLINK_SP);
-      /*vent                */ vent.initParam(WARM_WHITE, 0, getDuration());
-      /*panelBarMeter            */ panelBarMeter.fillUpFastEmptyDownSlowOnceInit(getDuration(), ENABLE);
-      /*cyclotron           */ cyclotron.rampInit(CYC_OFF, getDuration());
-      /*firingRod           */ firingRod.clear();
+      uint16_t duration = getDuration();
+      frontOrangeIndicator.initParam(ORANGE, 0, SOLID, duration);
       break;
     }
-    case 1:
-    { /*slowBlowIndicator   */
-      slowBlowIndicator.solid();
-      /*topWhiteIndicator   */ topWhiteIndicator.blink(ENABLE_RAMP);
-      /*topYellowIndicator  */ topYellowIndicator.solid();
-      /*frontOrangeIndicator*/ frontOrangeIndicator.ramp();
-      /*fireButtonSingleLed */ fireButtonSingleLed.blink();
-      /*vent                */ vent.ramp();
-      /*panelBarMeter            */ panelBarMeter.fillUpFastEmptyDownSlowOnce();
-      /*cyclotron           */ cyclotron.ramp();
-      /*firingRod           */ // cleared
-      break;
-    }
-    default:
-    {
-      DEBUG_PRINT("Invalid stageFlag in LEDs Scheme, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
-      break;
-    }
-    }
+    frontOrangeIndicator.ramp();
     break;
   }
 
   case STATE_CYCLOTRON_ON:
-  {
-    switch (stageFlag)
-    {
-    case 0:
-    {
-      /*slowBlowIndicator   */ slowBlowIndicator.initParam(RED, 100);
-      /*topWhiteIndicator   */ topWhiteIndicator.initParam(WHITE, 75, MEDIUM_BLINK_SP);
-      /*topYellowIndicator  */ topYellowIndicator.initParam(YELLOW, 100);
-      /*frontOrangeIndicator*/ frontOrangeIndicator.initParam(ORANGE, 100);
-      /*fireButtonSingleLed */ fireButtonSingleLed.on();
-      /*vent                */ vent.initParam(WARM_WHITE, 50); // finishing fade if not done
-      /*panelBarMeter            */ panelBarMeter.cyclotronIdleInit(heatLevel);
-      /*cyclotron           */ cyclotron.rampInit(CYC_ON, 500); // Finishing ramping if not done
-      /*firingRod           */ firingRod.clear();
-      break;
-    }
-    case 1:
-    { /*slowBlowIndicator   */
-      slowBlowIndicator.solid();
-      /*topWhiteIndicator   */ topWhiteIndicator.blink(DISABLE_RAMP);
-      /*topYellowIndicator  */ topYellowIndicator.solid();
-      /*frontOrangeIndicator*/ frontOrangeIndicator.solid();
-      /*fireButtonSingleLed */               // ON, no update required
-      /*vent                */ vent.solid(); // finishing fade if not done
-      /*panelBarMeter            */ panelBarMeter.cyclotronIdle(heatLevel);
-      /*cyclotron           */ cyclotron.ramp(); // Finishing ramping if not done
-      /*firingRod           */                   // cleared
-      break;
-    }
-    default:
-    {
-      DEBUG_PRINT("Invalid stageFlag in LEDs Scheme, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
-      break;
-    }
-    }
-    break;
-  }
-
   case STATE_CYCLOTRON_ON_TO_FULL:
-  {
-    switch (stageFlag)
-    {
-    case 0:
-    {
-      /*slowBlowIndicator   */ slowBlowIndicator.initParam(RED, 100);
-      /*topWhiteIndicator   */ topWhiteIndicator.initParam(WHITE, 75, FAST_BLINK_SP, getDuration());
-      /*topYellowIndicator  */ topYellowIndicator.initParam(YELLOW, 100);
-      /*frontOrangeIndicator*/ frontOrangeIndicator.initParam(ORANGE, 100);
-      /*fireButtonSingleLed */ fireButtonSingleLed.blinkInit(FAST_BLINK_SP);
-      /*vent                */ vent.initParam(WARM_WHITE, 75, getDuration());                        // finishing fade if not done
-      /*panelBarMeter            */ panelBarMeter.fillDownEmptyDownOnceInit(getDuration(), DISABLE); // full bar from top and empty it from top
-      /*cyclotron           */ cyclotron.rampInit(CYC_FULL, getDuration());
-      /*firingRod           */ firingRod.clear();
-      break;
-    }
-    case 1:
-    { /*slowBlowIndicator   */
-      slowBlowIndicator.solid();
-      /*topWhiteIndicator   */ topWhiteIndicator.blink(ENABLE_RAMP);
-      /*topYellowIndicator  */ topYellowIndicator.solid();
-      /*frontOrangeIndicator*/ frontOrangeIndicator.solid();
-      /*fireButtonSingleLed */ fireButtonSingleLed.blink();
-      /*vent                */ vent.ramp();                                // finishing fade if not done
-      /*panelBarMeter            */ panelBarMeter.fillDownEmptyDownOnce(); // full bar from top and empty it from top
-      /*cyclotron           */ cyclotron.ramp();
-      /*firingRod           */ // cleared
-      break;
-    }
-    default:
-    {
-      DEBUG_PRINT("Invalid stageFlag in LEDs Scheme, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
-      break;
-    }
-    }
-    break;
-  }
-
   case STATE_CYCLOTRON_FULL_TO_ON:
-  {
-    switch (stageFlag)
-    {
-    case 0:
-    {
-      /*slowBlowIndicator   */ slowBlowIndicator.initParam(RED, 100);
-      /*topWhiteIndicator   */ topWhiteIndicator.initParam(WHITE, 75, MEDIUM_BLINK_SP, getDuration());
-      /*topYellowIndicator  */ topYellowIndicator.initParam(YELLOW, 100);
-      /*frontOrangeIndicator*/ frontOrangeIndicator.initParam(ORANGE, 100);
-      /*fireButtonSingleLed */ fireButtonSingleLed.blinkInit(FAST_BLINK_SP);
-      /*vent                */ vent.initParam(WARM_WHITE, 50, getDuration());                              // finishing fade if not done
-      /*panelBarMeter            */ panelBarMeter.fillUpFastEmptyDownSlowOnceInit(getDuration(), DISABLE); // full bar and slow emptying from top to bottom
-      /*cyclotron           */ cyclotron.rampInit(CYC_ON, getDuration());
-      /*firingRod           */ firingRod.clear();
-
-      break;
-    }
-    case 1:
-    { /*slowBlowIndicator   */
-      slowBlowIndicator.solid();
-      /*topWhiteIndicator   */ topWhiteIndicator.blink(ENABLE_RAMP);
-      /*topYellowIndicator  */ topYellowIndicator.solid();
-      /*frontOrangeIndicator*/ frontOrangeIndicator.solid();
-      /*fireButtonSingleLed */ fireButtonSingleLed.blink();
-      /*vent                */ vent.ramp();                                      // finishing fade if not done
-      /*panelBarMeter            */ panelBarMeter.fillUpFastEmptyDownSlowOnce(); // full bar and slow emptying from top to bottom
-      /*cyclotron           */ cyclotron.ramp();
-      /*firingRod           */ // cleared
-      break;
-    }
-    default:
-    {
-      DEBUG_PRINT("Invalid stageFlag in LEDs Scheme, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
-      break;
-    }
-    }
-    break;
-  }
-
   case STATE_CYCLOTRON_FULL_POWER:
-  {
-    switch (stageFlag)
-    {
-    case 0:
-    {
-      /*slowBlowIndicator   */ slowBlowIndicator.initParam(RED, 100);
-      /*topWhiteIndicator   */ topWhiteIndicator.initParam(WHITE, 75, FAST_BLINK_SP);
-      /*topYellowIndicator  */ topYellowIndicator.initParam(YELLOW, 100);
-      /*frontOrangeIndicator*/ frontOrangeIndicator.initParam(ORANGE, 100);
-      /*fireButtonSingleLed */ fireButtonSingleLed.on();
-      /*vent                */ vent.initParam(WARM_WHITE, 75); // finishing fade if not done
-      /*panelBarMeter            */ panelBarMeter.cyclotronIdleFullInit(heatLevel);
-      /*cyclotron           */ cyclotron.rampInit(CYC_FULL, 500); // Finishing ramping if not done
-      /*firingRod           */ firingRod.clear();
-      break;
-    }
-    case 1:
-    { /*slowBlowIndicator   */
-      slowBlowIndicator.solid();
-      /*topWhiteIndicator   */ topWhiteIndicator.blink(DISABLE_RAMP);
-      /*topYellowIndicator  */ topYellowIndicator.solid();
-      /*frontOrangeIndicator*/ frontOrangeIndicator.solid();
-      /*fireButtonSingleLed */               // ON, no update required
-      /*vent                */ vent.solid(); // finishing fade if not done
-      /*panelBarMeter            */ panelBarMeter.cyclotronIdleFull(heatLevel);
-      /*cyclotron           */ cyclotron.ramp(); // Finishing ramping if not done
-      /*firingRod           */                   // Cleared
-      break;
-    }
-    default:
-    {
-      DEBUG_PRINT("Invalid stageFlag in LEDs Scheme, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
-      break;
-    }
-    }
-    break;
-  }
-
   case STATE_CAPTURE:
-  {
-    switch (stageFlag)
-    {
-    case 0:
-    {
-      /*slowBlowIndicator   */ slowBlowIndicator.initParam(RED, 100);
-      /*topWhiteIndicator   */ topWhiteIndicator.initParam(WHITE, 75, MEDIUM_BLINK_SP);
-      /*topYellowIndicator  */ topYellowIndicator.initParam(YELLOW, 100);
-      /*frontOrangeIndicator*/ frontOrangeIndicator.initParam(ORANGE, 100);
-      /*fireButtonSingleLed */ fireButtonSingleLed.off();
-      /*vent                */ vent.initParam(WARM_WHITE, 50);
-      /*panelBarMeter            */ panelBarMeter.fireInit(CAPTURE);
-      /*cyclotron           */ cyclotron.rampInit(CYC_CAPTURE_MAX, getDuration());
-      /*firingRod           */ firingRod.strobeInit(SHUFFLE, 100, 300);
-      break;
-    }
-    case 1:
-    {
-      /*slowBlowIndicator   */ slowBlowIndicator.solid();
-      /*topWhiteIndicator   */ topWhiteIndicator.blink(DISABLE_RAMP);
-      /*topYellowIndicator  */ topYellowIndicator.solid();
-      /*frontOrangeIndicator*/ frontOrangeIndicator.solid();
-      /*fireButtonSingleLed */ // OFF
-      /*vent                */ vent.flicker(50, 25);
-      /*panelBarMeter            */ panelBarMeter.fire(heatLevel);
-      /*cyclotron           */ cyclotron.ramp();
-      /*firingRod           */ firingRod.strobe();
-      break;
-    }
-    default:
-    {
-      DEBUG_PRINT("Invalid stageFlag in LEDs Scheme, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
-      break;
-    }
-    }
-    break;
-  }
-
-  case STATE_CAPTURE_WARNING_OVERHEAT:
-  {
-    switch (stageFlag)
-    {
-    case 0:
-    {
-      /*slowBlowIndicator   */ slowBlowIndicator.initParam(RED, 100);
-      /*topWhiteIndicator   */ topWhiteIndicator.initParam(WHITE, 75, MEDIUM_BLINK_SP);
-      /*topYellowIndicator  */ topYellowIndicator.initParam(YELLOW, 100, FAST_BLINK_SP, topWhiteIndicator.getPrevBlink(), topWhiteIndicator.getPulse());
-      /*frontOrangeIndicator*/ frontOrangeIndicator.initParam(ORANGE, 100);
-      /*fireButtonSingleLed */ fireButtonSingleLed.off();
-      /*vent                */ vent.initParam(WARM_WHITE, 50);
-      /*panelBarMeter            */
-      if (prevState == STATE_CYCLOTRON_ON) // Only init if it's direct warning without going through STATE_CAPTURE
-      {
-        panelBarMeter.fireInit(CAPTURE);
-      }
-      /*cyclotron           */ cyclotron.rampInit(CYC_CAPTURE_WARNING, getDuration() - DURATION_CAPTURE_OVERHEAT);
-      /*firingRod           */ firingRod.strobeInit(SHUFFLE, 100, 300);
-      break;
-    }
-    case 1:
-    {
-      /*slowBlowIndicator   */ slowBlowIndicator.solid();
-      /*topWhiteIndicator   */ topWhiteIndicator.blink(DISABLE_RAMP);
-      /*topYellowIndicator  */ topYellowIndicator.blink(DISABLE_RAMP);
-      /*frontOrangeIndicator*/ frontOrangeIndicator.solid();
-      /*fireButtonSingleLed */ // OFF
-      /*vent                */ vent.flicker(50, 25);
-      /*panelBarMeter            */ panelBarMeter.fire(heatLevel);
-      /*cyclotron           */ cyclotron.ramp();
-      /*firingRod           */ firingRod.strobe();
-      break;
-    }
-    case 2:
-    {
-      /*slowBlowIndicator   */ slowBlowIndicator.initParam(RED, 100);
-      /*topWhiteIndicator   */ topWhiteIndicator.initParam(WHITE, 75, MEDIUM_BLINK_SP);
-      /*topYellowIndicator  */ topYellowIndicator.initParam(YELLOW, 100, FAST_BLINK_SP);
-      /*frontOrangeIndicator*/ frontOrangeIndicator.initParam(ORANGE, 0, min(3000, DURATION_CAPTURE_OVERHEAT - 3000));
-      /*fireButtonSingleLed */ fireButtonSingleLed.blinkInit(FAST_BLINK_SP);
-      /*vent                */ vent.initParam(WARM_WHITE, 0, min(3000, DURATION_CAPTURE_OVERHEAT - 3000));
-      /*panelBarMeter            */ panelBarMeter.fireInit(BURST, END_SEQ); // reverse end finish fire animation
-      /*cyclotron           */ cyclotron.rampInit(CYC_OFF, min(3000, DURATION_CAPTURE_OVERHEAT - 3000));
-      /*firingRod           */ firingRod.strobeInit(NO_SHUFFLE, 0, 2000);
-      break;
-    }
-    case 3:
-    {
-      /*slowBlowIndicator   */ slowBlowIndicator.solid();
-      /*topWhiteIndicator   */ topWhiteIndicator.blink(DISABLE_RAMP);
-      /*topYellowIndicator  */ topYellowIndicator.blink(DISABLE_RAMP);
-      /*frontOrangeIndicator*/ frontOrangeIndicator.ramp();
-      /*fireButtonSingleLed */ fireButtonSingleLed.blink();
-      /*vent                */ vent.ramp();
-      /*panelBarMeter            */ panelBarMeter.fire(heatLevel);
-      /*cyclotron           */ cyclotron.ramp();
-      /*firingRod           */ firingRod.strobe();
-      break;
-    }
-    default:
-    {
-      DEBUG_PRINT("Invalid stageFlag in LEDs Scheme, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
-      break;
-    }
-    }
-    break;
-  }
-
   case STATE_CAPTURE_TAIL:
   {
-    switch (stageFlag)
+    if (!stateInitialized)
     {
-    case 0:
-    {
-      /*slowBlowIndicator   */ slowBlowIndicator.initParam(RED, 100);
-      /*topWhiteIndicator   */ topWhiteIndicator.initParam(WHITE, 75, MEDIUM_BLINK_SP);
-      /*topYellowIndicator  */ topYellowIndicator.initParam(YELLOW, 100);
-      /*frontOrangeIndicator*/ frontOrangeIndicator.initParam(ORANGE, 100);
-      /*fireButtonSingleLed */ fireButtonSingleLed.blinkInit(FAST_BLINK_SP);
-      /*vent                */ vent.initParam(WARM_WHITE, 50, 300);
-      /*panelBarMeter            */ panelBarMeter.fireInit(BURST, END_SEQ); // reverse end finish fire animation
-      /*cyclotron           */ cyclotron.rampInit(CYC_FULL, getDuration());
-      /*firingRod           */ firingRod.strobeInit(NO_SHUFFLE, 0, 1000);
+      frontOrangeIndicator.initParam(ORANGE, 100);
       break;
     }
-    case 1:
-    {
-      /*slowBlowIndicator   */ slowBlowIndicator.solid();
-      /*topWhiteIndicator   */ topWhiteIndicator.blink(DISABLE_RAMP);
-      /*topYellowIndicator  */ topYellowIndicator.solid();
-      /*frontOrangeIndicator*/ frontOrangeIndicator.solid();
-      /*fireButtonSingleLed */ fireButtonSingleLed.blink();
-      /*vent                */ vent.ramp();
-      /*panelBarMeter            */ panelBarMeter.fire(heatLevel);
-      /*cyclotron           */ cyclotron.ramp();
-      /*firingRod           */ firingRod.strobe();
-      break;
-    }
-    default:
-    {
-      DEBUG_PRINT("Invalid stageFlag in LEDs Scheme, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
-      break;
-    }
-    }
+    frontOrangeIndicator.solid();
     break;
   }
 
   case STATE_BURST:
   {
-    switch (stageFlag)
+    if (!stateInitialized)
     {
-    case 0: // Burst initialisation
-    {
-      /*slowBlowIndicator   */ slowBlowIndicator.initParam(RED, 100);
-      /*topWhiteIndicator   */ topWhiteIndicator.initParam(WHITE, 75, FAST_BLINK_SP);
-      /*topYellowIndicator  */ topYellowIndicator.initParam(YELLOW, 100);
-      /*frontOrangeIndicator*/ frontOrangeIndicator.initParam(ORANGE, 100);
-      /*fireButtonSingleLed */ fireButtonSingleLed.off();
-      /*vent                */ vent.initParam(WARM_WHITE, 75);
-      /*panelBarMeter            */ panelBarMeter.fireInit(BURST);
-      /*cyclotron           */ cyclotron.rampInit(CYC_BURST_MAX, getDuration() - DURATION_BURST_TAIL); //
-      /*firingRod           */ firingRod.strobeInit(SHUFFLE, 100, 300);
+      frontOrangeIndicator.initParam(ORANGE, 100);
       break;
     }
-    case 1: // BURST
-    {
-      /*slowBlowIndicator   */ slowBlowIndicator.solid();
-      /*topWhiteIndicator   */ topWhiteIndicator.blink(DISABLE_RAMP);
-      /*topYellowIndicator  */ topYellowIndicator.solid();
-      /*frontOrangeIndicator*/ frontOrangeIndicator.solid();
-      /*fireButtonSingleLed */ // OFF
-      /*vent                */ vent.flicker(50, 25);
-      /*panelBarMeter            */ panelBarMeter.fire(heatLevel);
-      /*cyclotron           */ cyclotron.ramp();
-      /*firingRod           */ firingRod.strobe();
+    if (!phaseInitialized)
       break;
-    }
-    case 2: // TAIL initialisation
-    {
-      /*slowBlowIndicator   */ slowBlowIndicator.initParam(RED, 100);
-      /*topWhiteIndicator   */ topWhiteIndicator.initParam(WHITE, 75, FAST_BLINK_SP);
-      /*topYellowIndicator  */ topYellowIndicator.initParam(YELLOW, 100);
-      /*frontOrangeIndicator*/ frontOrangeIndicator.initParam(ORANGE, 100);
-      /*fireButtonSingleLed */ fireButtonSingleLed.blinkInit(FAST_BLINK_SP);
-      /*vent                */ vent.initParam(WARM_WHITE, 75, 300);
-      /*panelBarMeter            */ panelBarMeter.fireInit(CAPTURE, END_SEQ); // No init, reverse and finish the burst sequence...
-      /*cyclotron           */ cyclotron.rampInit(CYC_CAPTURE_MAX, DURATION_BURST_TAIL);
-      /*firingRod           */ firingRod.strobeInit(NO_SHUFFLE, 0, 1000);
-      break;
-    }
-    case 3: // TAIL
-    {
-      /*slowBlowIndicator   */ slowBlowIndicator.solid();
-      /*topWhiteIndicator   */ topWhiteIndicator.blink(DISABLE_RAMP);
-      /*topYellowIndicator  */ topYellowIndicator.solid();
-      /*frontOrangeIndicator*/ frontOrangeIndicator.solid();
-      /*fireButtonSingleLed */ fireButtonSingleLed.blink();
-      /*vent                */ vent.ramp();
-      /*panelBarMeter            */ panelBarMeter.fire(heatLevel);
-      /*cyclotron           */ cyclotron.ramp();
-      /*firingRod           */ firingRod.strobe();
-      break;
-    }
-    default:
-    {
-      DEBUG_PRINT("Invalid stageFlag in LEDs Scheme, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
-      break;
-    }
-    }
+    frontOrangeIndicator.solid();
     break;
   }
 
+  case STATE_CAPTURE_OVERHEAT:
   case STATE_BURST_OVERHEAT:
   {
-    switch (stageFlag)
+    switch (overheatPhase)
     {
-    case 0: // Burst with warning initialisation
-    {
-      /*slowBlowIndicator   */ slowBlowIndicator.initParam(RED, 100);
-      /*topWhiteIndicator   */ topWhiteIndicator.initParam(WHITE, 75, FAST_BLINK_SP);
-      /*topYellowIndicator  */ topYellowIndicator.initParam(YELLOW, 100, FAST_BLINK_SP, topWhiteIndicator.getPrevBlink(), topWhiteIndicator.getPulse());
-      /*frontOrangeIndicator*/ frontOrangeIndicator.initParam(ORANGE, 100);
-      /*fireButtonSingleLed */ fireButtonSingleLed.off();
-      /*vent                */ vent.initParam(WARM_WHITE, 75);
-      /*panelBarMeter            */ panelBarMeter.fireInit(BURST);
-      /*cyclotron           */ cyclotron.rampInit(CYC_BURST_WARNING, getDuration() - DURATION_BURST_OVERHEAT);
-      /*firingRod           */ firingRod.strobeInit(SHUFFLE, 100, 300);
+    case PHASE_WARNING:
+      if (!phaseInitialized)
+      {
+        frontOrangeIndicator.initParam(ORANGE, 100);
+        break;
+      }
+      frontOrangeIndicator.solid();
       break;
-    }
-    case 1: // BURST with warning
-    {
-      /*slowBlowIndicator   */ slowBlowIndicator.solid();
-      /*topWhiteIndicator   */ topWhiteIndicator.blink(DISABLE_RAMP);
-      /*topYellowIndicator  */ topYellowIndicator.blink(DISABLE);
-      /*frontOrangeIndicator*/ frontOrangeIndicator.solid();
-      /*fireButtonSingleLed */ // OFF
-      /*vent                */ vent.flicker(50, 25);
-      /*panelBarMeter            */ panelBarMeter.fire(heatLevel);
-      /*cyclotron           */ cyclotron.ramp();
-      /*firingRod           */ firingRod.strobe();
+    case PHASE_OVERHEAT:
+      if (!phaseInitialized)
+      {
+        if (WBstate == STATE_CAPTURE_OVERHEAT)
+          frontOrangeIndicator.initParam(ORANGE,
+                                         0,
+                                         SOLID,
+                                         CAPTURE_OVERHEAT_PHASE_LENGTH[PHASE_OVERHEAT] + CAPTURE_OVERHEAT_PHASE_LENGTH[PHASE_COOLING]);
+        else
+          frontOrangeIndicator.initParam(ORANGE,
+                                         0,
+                                         SOLID,
+                                         BURST_OVERHEAT_PHASE_LENGTH[PHASE_OVERHEAT] + BURST_OVERHEAT_PHASE_LENGTH[PHASE_COOLING]);
+        break;
+      }
+      frontOrangeIndicator.ramp();
       break;
-    }
-    case 2: // OVERHEAT initialisation
-    {
-      uint16_t duration = min(3000, DURATION_BURST_OVERHEAT - 3000);
-      /*slowBlowIndicator   */ slowBlowIndicator.initParam(RED, 100);
-      /*topWhiteIndicator   */ topWhiteIndicator.initParam(WHITE, 75, FAST_BLINK_SP);
-      /*topYellowIndicator  */ topYellowIndicator.initParam(YELLOW, 100, FAST_BLINK_SP);
-      /*frontOrangeIndicator*/ frontOrangeIndicator.initParam(ORANGE, 0, duration);
-      /*fireButtonSingleLed */ fireButtonSingleLed.blinkInit(FAST_BLINK_SP);
-      /*vent                */ vent.initParam(WARM_WHITE, 0, duration);
-      /*panelBarMeter            */ panelBarMeter.fireInit(CAPTURE, END_SEQ); // No init, reverse and finish the burst sequence...
-      /*cyclotron           */ cyclotron.rampInit(CYC_OFF, duration);
-      /*firingRod           */ firingRod.strobeInit(NO_SHUFFLE, 0, 2000);
+    case PHASE_COOLING:
+      if (!phaseInitialized)
+        break;
+      frontOrangeIndicator.ramp();
       break;
-    }
-    case 3: // OVERHEAT
-    {
-      /*slowBlowIndicator   */ slowBlowIndicator.solid();
-      /*topWhiteIndicator   */ topWhiteIndicator.blink(DISABLE_RAMP);
-      /*topYellowIndicator  */ topYellowIndicator.blink(DISABLE_RAMP);
-      /*frontOrangeIndicator*/ frontOrangeIndicator.ramp();
-      /*fireButtonSingleLed */ fireButtonSingleLed.blink();
-      /*vent                */ vent.ramp();
-      /*panelBarMeter            */ panelBarMeter.fire(heatLevel);
-      /*cyclotron           */ cyclotron.ramp();
-      /*firingRod           */ firingRod.strobe();
-      break;
-    }
-    default:
-    {
-      DEBUG_PRINT("Invalid stageFlag in LEDs Scheme, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
-      break;
-    }
-    }
-    break;
-  }
-
-  case STATE_ALL_ON_TO_OFF:
-  {
-    switch (stageFlag)
-    {
-    case 0:
-    {
-      /*slowBlowIndicator   */ slowBlowIndicator.initParam(BLACK, 100, SOLID, getDuration());
-      /*topWhiteIndicator   */ topWhiteIndicator.initParam(WHITE, 0, SOLID, getDuration());
-      /*topYellowIndicator  */ topYellowIndicator.initParam(BLACK, 100, SOLID, getDuration());
-      /*frontOrangeIndicator*/ frontOrangeIndicator.clear();
-      /*fireButtonSingleLed */ fireButtonSingleLed.clear();
-      /*vent                */ vent.initParam(WARM_WHITE, 0, 2000);
-      /*panelBarMeter            */ panelBarMeter.fillUpFastEmptyDownSlowOnceInit(getDuration(), ENABLE);
-      /*cyclotron           */ cyclotron.rampInit(CYC_OFF, getDuration());
-      /*firingRod           */ firingRod.strobeInit(NO_SHUFFLE, 0, 1000);
-      break;
-    }
-    case 1:
-    { /*slowBlowIndicator   */
-      slowBlowIndicator.ramp();
-      /*topWhiteIndicator   */ topWhiteIndicator.ramp();
-      /*topYellowIndicator  */ topYellowIndicator.ramp();
-      /*frontOrangeIndicator*/ // Cleared
-      /*fireButtonSingleLed */ // Cleared
-      /*vent                */ vent.ramp();
-      /*panelBarMeter       */ panelBarMeter.fillUpFastEmptyDownSlowOnce();
-      /*cyclotron           */ cyclotron.ramp();
-      /*firingRod           */ firingRod.strobe();
-      break;
-    }
-
-    default:
-    {
-      DEBUG_PRINT("Invalid stageFlag in LEDs Scheme, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
-      break;
-    }
     }
     break;
   }
   }
 }
 
+void getFireButtonIndicatorScheme()
+{
+  switch (WBstate)
+  {
+  case STATE_ZERO:
+  case STATE_LOW_BATT:
+  case STATE_POWER_OFF:
+  case STATE_POWER_OFF_TO_ON:
+  case STATE_POWER_ON_TO_OFF:
+  case STATE_POWER_ON:
+  case STATE_ALL_ON_TO_OFF:
+  {
+    if (!stateInitialized)
+    {
+      fireButtonSingleLed.clear();
+      break;
+    }
+    break;
+  }
+
+  case STATE_PARTY_MODE:
+  case STATE_CYCLOTRON_ON:
+  case STATE_CYCLOTRON_FULL_POWER:
+  {
+    if (!stateInitialized)
+    {
+      fireButtonSingleLed.on();
+      break;
+    }
+    break;
+  }
+
+  case STATE_PARTY_MODE_IN:
+  case STATE_PARTY_MODE_OUT:
+  {
+    if (!stateInitialized)
+    {
+      fireButtonSingleLed.blinkInit(MEDIUM_BLINK_SP);
+      break;
+    }
+    fireButtonSingleLed.blink();
+    break;
+  }
+
+  case STATE_CYCLOTRON_OFF_TO_ON:
+  case STATE_CYCLOTRON_ON_TO_OFF:
+  case STATE_CYCLOTRON_ON_TO_FULL:
+  case STATE_CYCLOTRON_FULL_TO_ON:
+  case STATE_CAPTURE_TAIL:
+  {
+    if (!stateInitialized)
+    {
+      fireButtonSingleLed.blinkInit(FAST_BLINK_SP);
+      break;
+    }
+    fireButtonSingleLed.blink();
+    break;
+  }
+
+  case STATE_CAPTURE:
+  {
+    if (!stateInitialized)
+    {
+      fireButtonSingleLed.off();
+      break;
+    }
+    break;
+  }
+
+  case STATE_BURST:
+  {
+    switch (burstPhase)
+    {
+    case BURST_PHASE_FIRING:
+      if (!phaseInitialized)
+      {
+        fireButtonSingleLed.off();
+        break;
+      }
+      break;
+    case BURST_PHASE_TAIL:
+      if (!phaseInitialized)
+      {
+        fireButtonSingleLed.blinkInit(FAST_BLINK_SP);
+        break;
+      }
+      fireButtonSingleLed.blink();
+      break;
+    }
+    break;
+  }
+
+  case STATE_CAPTURE_OVERHEAT:
+  case STATE_BURST_OVERHEAT:
+  {
+    switch (overheatPhase)
+    {
+    case PHASE_WARNING:
+      if (!phaseInitialized)
+      {
+        fireButtonSingleLed.off();
+        break;
+      }
+      break;
+    case PHASE_OVERHEAT:
+      if (!phaseInitialized)
+        break;
+      break;
+
+    case PHASE_COOLING:
+      if (!phaseInitialized)
+      {
+        fireButtonSingleLed.blinkInit(FAST_BLINK_SP);
+        break;
+      }
+      fireButtonSingleLed.blink();
+      break;
+    }
+    break;
+  }
+  }
+}
+
+void getVentScheme()
+{
+  // Some sequences need to be initialized with wrist blaster state, stateInitialized is used to know if wrist blaster state is in initialization
+
+  switch (WBstate)
+  {
+  case STATE_ZERO:
+  case STATE_LOW_BATT:
+  case STATE_POWER_OFF:
+  case STATE_POWER_OFF_TO_ON:
+  case STATE_POWER_ON:
+  case STATE_PARTY_MODE:
+  case STATE_PARTY_MODE_IN:
+  case STATE_PARTY_MODE_OUT:
+  {
+    if (!stateInitialized)
+    {
+      vent.clear();
+      break;
+    }
+    break;
+  }
+
+  case STATE_POWER_ON_TO_OFF:
+  case STATE_ALL_ON_TO_OFF:
+  {
+    if (!stateInitialized)
+    {
+      vent.initParam(WARM_WHITE, 0, 2000);
+      break;
+    }
+    vent.ramp();
+    break;
+  }
+
+  case STATE_CYCLOTRON_OFF_TO_ON:
+  case STATE_CYCLOTRON_FULL_TO_ON:
+  {
+    if (!stateInitialized)
+    {
+      vent.initParam(WARM_WHITE, 50, getDuration());
+      break;
+    }
+    vent.ramp(); // White, not at full brightness
+    break;
+  }
+
+  case STATE_CYCLOTRON_ON_TO_OFF:
+  {
+    if (!stateInitialized)
+    {
+      vent.initParam(WARM_WHITE, 0, getDuration());
+      break;
+    }
+    vent.ramp();
+    break;
+  }
+
+  case STATE_CYCLOTRON_ON:
+  {
+    if (!stateInitialized)
+    {
+      vent.initParam(WARM_WHITE, 50); // finishing fade if not done
+      break;
+    }
+    vent.solid(); // finishing fade if not done
+    break;
+  }
+
+  case STATE_CYCLOTRON_ON_TO_FULL:
+  {
+    if (!stateInitialized)
+    {
+      vent.initParam(WARM_WHITE, 75, getDuration()); // finishing fade if not done
+      break;
+    }
+    vent.ramp(); // finishing fade if not done
+    break;
+  }
+
+  case STATE_CYCLOTRON_FULL_POWER:
+  {
+    if (!stateInitialized)
+    {
+      vent.initParam(WARM_WHITE, 75); // finishing fade if not done
+      break;
+    }
+    vent.solid(); // finishing fade if not done
+    break;
+  }
+
+  case STATE_CAPTURE:
+  {
+    if (!stateInitialized)
+    {
+      vent.initParam(ORANGE, 50, getDuration());
+      break;
+    }
+    vent.flicker(25, 25);
+    break;
+  }
+
+  case STATE_CAPTURE_OVERHEAT:
+  {
+    switch (overheatPhase)
+    {
+    case PHASE_WARNING:
+      if (!phaseInitialized)
+      {
+        vent.initParam(RED, 100, CAPTURE_OVERHEAT_PHASE_LENGTH[PHASE_WARNING]);
+        break;
+      }
+      vent.flicker(25, 25);
+      break;
+    case PHASE_OVERHEAT:
+      if (!phaseInitialized)
+      {
+        vent.initParam(BLUE, 100, CAPTURE_OVERHEAT_PHASE_LENGTH[PHASE_OVERHEAT]);
+        break;
+      }
+      vent.ramp();
+      break;
+    case PHASE_COOLING:
+      if (!phaseInitialized)
+      {
+        vent.initParam(BLUE, 0, CAPTURE_OVERHEAT_PHASE_LENGTH[PHASE_COOLING]);
+        break;
+      }
+      vent.ramp();
+      break;
+    }
+    break;
+  }
+
+  case STATE_CAPTURE_TAIL:
+  {
+    if (!stateInitialized)
+    {
+      vent.initParam(WARM_WHITE, 50, 300);
+      break;
+    }
+    vent.ramp();
+    break;
+  }
+
+  case STATE_BURST:
+  {
+    switch (burstPhase)
+    {
+    case BURST_PHASE_FIRING:
+      if (!phaseInitialized)
+      {
+        uint8_t intensity = 50 + (heatLevel / MAX_BURST_SHOTS);
+        vent.initParam(ORANGE, intensity, getDuration());
+        break;
+      }
+      vent.flicker(25, 25);
+      break;
+    case BURST_PHASE_TAIL:
+      if (!phaseInitialized)
+      {
+        uint8_t intensity = 50 + (heatLevel / MAX_BURST_SHOTS);
+        vent.initParam(WARM_WHITE, intensity, 300);
+        break;
+      }
+      vent.ramp();
+      break;
+    }
+    break;
+  }
+
+  case STATE_BURST_OVERHEAT:
+  {
+    switch (overheatPhase)
+    {
+    case PHASE_WARNING:
+      if (!phaseInitialized)
+      {
+        vent.initParam(RED, 100, BURST_OVERHEAT_PHASE_LENGTH[PHASE_WARNING] / 2);
+        break;
+      }
+      vent.flicker(25, 25);
+      break;
+    case PHASE_OVERHEAT:
+      if (!phaseInitialized)
+      {
+        vent.initParam(BLUE, 100, BURST_OVERHEAT_PHASE_LENGTH[PHASE_OVERHEAT] / 4);
+        break;
+      }
+      vent.ramp();
+      break;
+    case PHASE_COOLING:
+      if (!phaseInitialized)
+      {
+        vent.initParam(BLUE, 0, BURST_OVERHEAT_PHASE_LENGTH[PHASE_COOLING]);
+        break;
+      }
+      vent.ramp();
+      break;
+    }
+    break;
+  }
+  }
+}
+
+void getPanelBarMeterScheme()
+{
+  auto &animations = panelBarMeter.animations();
+
+  switch (WBstate)
+  {
+  case STATE_ZERO:
+  case STATE_LOW_BATT:
+  case STATE_POWER_OFF:
+  case STATE_POWER_OFF_TO_ON:
+  case STATE_POWER_ON_TO_OFF:
+  case STATE_POWER_ON:
+  {
+    if (!stateInitialized)
+    {
+      animations.stop();
+      break;
+    }
+    break;
+  }
+
+  case STATE_PARTY_MODE:
+  {
+    if (!stateInitialized)
+    {
+      animations.stop().beatPulse(116);
+      break;
+    }
+    break;
+  }
+
+  case STATE_PARTY_MODE_IN:
+  {
+    if (!stateInitialized)
+    {
+      uint16_t interval = constrain(max(5U, getDuration()) / (PBM_SEG_NUMBER * 2U), 10U, 255U);
+      animations.stop()
+          .fillUpIntv(interval)
+          .enqueue()
+          .emptyDownIntv(interval)
+          .enqueue()
+          .startQueue();
+
+      break;
+    }
+    break;
+  }
+
+  case STATE_PARTY_MODE_OUT:
+  case STATE_CYCLOTRON_ON_TO_OFF:
+  case STATE_ALL_ON_TO_OFF:
+  {
+    if (!stateInitialized)
+    {
+      int32_t available = max(
+          5L,
+          (int32_t)getDuration() - 10L * PBM_SEG_NUMBER);
+      int32_t denominator = PBM_SEG_NUMBER * 11L;
+      uint16_t emptyInterval = constrain(
+          (available * 10L + denominator / 2) / denominator,
+          10L,
+          255L);
+      animations.stop()
+          .fillUpIntv(10)
+          .enqueue()
+          .emptyDownIntv(emptyInterval)
+          .enqueue()
+          .startQueue();
+
+      break;
+    }
+    break;
+  }
+
+  case STATE_CYCLOTRON_OFF_TO_ON:
+  case STATE_CYCLOTRON_ON_TO_FULL:
+  {
+    if (!stateInitialized)
+    {
+      uint16_t interval = constrain(max(5U, getDuration()) / (PBM_SEG_NUMBER * 2U), 10U, 255U);
+      animations.stop()
+          .fillDownIntv(interval)
+          .enqueue()
+          .emptyDownIntv(interval)
+          .enqueue()
+          .startQueue();
+
+      break;
+    }
+    break;
+  }
+
+  case STATE_CYCLOTRON_ON:
+  {
+    if (!stateInitialized)
+    {
+      animations.bounceFillFromEdgesIntv(25, 25, &PANEL_MAX_PERCENT, &heatLevel)
+          .loop();
+
+      break;
+    }
+    break;
+  }
+
+  case STATE_CYCLOTRON_FULL_TO_ON:
+  {
+    if (!stateInitialized)
+    {
+      int32_t available = max(5L, (int32_t)getDuration() - 10L * PBM_SEG_NUMBER);
+      int32_t denominator = PBM_SEG_NUMBER * 11L;
+      uint16_t emptyInterval = constrain(
+          (available * 10L + denominator / 2) / denominator,
+          10L,
+          255L);
+      animations.stop()
+          .fillUpIntv(10)
+          .enqueue()
+          .emptyDownIntv(emptyInterval)
+          .enqueue()
+          .startQueue();
+
+      break;
+    }
+    break;
+  }
+
+  case STATE_CYCLOTRON_FULL_POWER:
+  {
+    if (!stateInitialized)
+    {
+      animations.bounceFillFromCenterIntv(25, 25, &PANEL_MAX_PERCENT, &heatLevel)
+          .loop();
+      break;
+    }
+    break;
+  }
+
+  case STATE_CAPTURE:
+
+  {
+    // Keep the block speed synchronized with the live heat level.
+    uint16_t speed = map(heatLevel, 0, 100, 25, 10);
+    if (!stateInitialized)
+    {
+      animations.stop().collidingBlocks(speed, 8, PBM_BLOCK_SPACING, 0);
+      break;
+    }
+    // Keep the animation responsive as the heat level changes.
+    animations.setUpdateInterval(speed);
+    break;
+  }
+
+  case STATE_CAPTURE_TAIL:
+  {
+    static bool blocksStopped = false;
+    // Keep the block speed synchronized with the live heat level.
+    uint16_t speed = map(heatLevel, 0, 100, 25, 10);
+    if (!stateInitialized)
+    {
+      // Reverse the Capture blocks so the remaining blocks drain outward.
+      animations.toggleLogic();
+      blocksStopped = false;
+      break;
+    }
+    if (!blocksStopped)
+    {
+      // Continue updating the blocks while the tail lets them drain.
+      animations.setUpdateInterval(speed);
+
+      // Capture tail is a separate state, so its emission delay starts at
+      // stateStartTime. Stop creating blocks but let emitted blocks finish.
+      if (now - stateStartTime >= PBM_BLOCK_ENDING_OFFSET)
+      {
+        animations.stopBlockEmission();
+      }
+      if (!animations.isRunning())
+      {
+        // Reset the completed animation and its retained frame before queuing
+        // the tail animation; otherwise the old final frame can briefly flash.
+        animations.stop()
+            .wait(PBM_BLOCK_ENDING_DELAY)
+            .enqueue()
+            .bounceFillFromEdgesIntv(25, 25, &PANEL_MAX_PERCENT, &heatLevel)
+            .loop()
+            .enqueue()
+            .startQueue();
+        blocksStopped = true;
+      }
+    }
+    break;
+  }
+
+  case STATE_BURST:
+  {
+    // Keep the block speed synchronized with the live heat level.
+    uint16_t speed = map(heatLevel, 0, 100, 25, 10);
+    static bool blocksStopped = false;
+
+    switch (burstPhase)
+    {
+    case BURST_PHASE_FIRING:
+      if (!phaseInitialized)
+      {
+        animations.stop().explodingBlocks(speed, 8, PBM_BLOCK_SPACING, 0);
+        break;
+      }
+      animations.setUpdateInterval(speed);
+      break;
+
+    case BURST_PHASE_TAIL:
+      if (!phaseInitialized)
+      {
+        // Reverse the firing blocks so the remaining blocks drain outward.
+        animations.toggleLogic();
+        blocksStopped = false;
+        break;
+      }
+      if (!blocksStopped)
+      {
+        // Continue updating the blocks while the tail lets them drain.
+        animations.setUpdateInterval(speed);
+
+        // Burst tail is a phase inside STATE_BURST, so its emission delay
+        // starts at phaseStartTime rather than stateStartTime.
+        if (now - phaseStartTime >= PBM_BLOCK_ENDING_OFFSET)
+        {
+          animations.stopBlockEmission();
+        }
+        if (!animations.isRunning())
+        {
+          // Reset the completed animation and its retained frame before
+          // queuing the tail animation to prevent a transition flash.
+          animations.stop()
+              .wait(PBM_BLOCK_ENDING_DELAY)
+              .enqueue()
+              .bounceFillFromCenterIntv(25, 25, &PANEL_MAX_PERCENT, &heatLevel)
+              .loop()
+              .enqueue()
+              .startQueue();
+          blocksStopped = true;
+        }
+      }
+      break;
+    }
+    break;
+  }
+
+  case STATE_CAPTURE_OVERHEAT:
+  case STATE_BURST_OVERHEAT:
+  {
+    // Keep the block speed synchronized with the live heat level.
+    uint16_t speed = map(heatLevel, 0, 100, 25, 10);
+    switch (overheatPhase)
+    {
+    case PHASE_WARNING:
+      if (!phaseInitialized)
+      {
+        if (WBstate == STATE_CAPTURE_OVERHEAT && prevState == STATE_CYCLOTRON_ON) // Only init if it's direct warning without going through STATE_CAPTURE
+          animations.stop().collidingBlocks(speed, 8, PBM_BLOCK_SPACING, 0);
+        else if (WBstate == STATE_BURST_OVERHEAT)
+          animations.stop().explodingBlocks(speed, 8, PBM_BLOCK_SPACING, 0);
+        break;
+      }
+      // Keep the animation responsive as the heat level changes.
+      animations.setUpdateInterval(speed);
+      break;
+    case PHASE_OVERHEAT:
+      if (!phaseInitialized)
+      {
+        // Reverse the warning blocks for the overheat discharge direction.
+        animations.invertLogic();
+        break;
+      }
+      // Keep the animation responsive while existing blocks drain.
+      animations.setUpdateInterval(speed);
+      if (now - phaseStartTime > PBM_BLOCK_ENDING_DELAY)
+        animations.stopBlockEmission();
+      break;
+    case PHASE_COOLING:
+      if (!phaseInitialized)
+      {
+        uint16_t interval = BURST_OVERHEAT_PHASE_LENGTH[PHASE_COOLING] / (2 * PBM_SEG_NUMBER);
+        uint16_t blockSize = PBM_SEG_NUMBER;
+        animations.stop()
+            .explodingBlocks(interval, blockSize, blockSize, 1);
+        break;
+      }
+      break;
+    }
+    break;
+  }
+  }
+}
+
+static_assert(CYCLOTRON_STATE_CONFIG_COUNT == STATE_LOW_BATT + 1,
+              "CYCLOTRON_STATE_CONFIG must contain one entry per BlasterState");
+
+uint16_t getCyclotronRampTime(uint8_t rampTime)
+{
+  switch (rampTime)
+  {
+  case CYC_RAMP_TRACK:
+    return getDuration();
+  case CYC_RAMP_FINISH:
+    return 500;
+  case CYC_RAMP_CAPTURE_TAKEOFF:
+    return DURATION_CAPTURE_TAKEOFF_RAMP;
+  default:
+    return 0;
+  }
+}
+
+void getCyclotronScheme()
+{
+  const CyclotronStateConfig config = {
+      pgm_read_byte(&CYCLOTRON_STATE_CONFIG[WBstate].target),
+      pgm_read_byte(&CYCLOTRON_STATE_CONFIG[WBstate].rampTime)};
+
+  if (config.target != CYC_TARGET_PHASED)
+  {
+    if (config.target == CYC_TARGET_CLEAR)
+    {
+      if (!stateInitialized)
+        cyclotron.clear();
+      return;
+    }
+    if (!stateInitialized)
+    {
+      cyclotron.rampInit(getCyclotronTarget(config.target,
+                                            !SWmain.isReleased(),
+                                            !SWcyclotron.isReleased(),
+                                            SWactivate.isPressed()),
+                         getCyclotronRampTime(config.rampTime));
+      return;
+    }
+    cyclotron.ramp();
+    return;
+  }
+
+  // Only the three phase-driven state IDs reach this switch.
+  switch ((uint8_t)WBstate)
+  {
+  case STATE_CAPTURE_OVERHEAT:
+  {
+    switch (overheatPhase)
+    {
+    case PHASE_WARNING:
+      if (!phaseInitialized)
+      {
+        cyclotron.rampInit(CYC_CAPTURE_WARNING, CAPTURE_OVERHEAT_PHASE_LENGTH[PHASE_WARNING]);
+        break;
+      }
+      cyclotron.ramp();
+      break;
+    case PHASE_OVERHEAT:
+      if (!phaseInitialized)
+      {
+        cyclotron.rampInit(CYC_OFF,
+                           CAPTURE_OVERHEAT_PHASE_LENGTH[PHASE_OVERHEAT] +
+                               CAPTURE_OVERHEAT_PHASE_LENGTH[PHASE_COOLING] -
+                               1000);
+        break;
+      }
+      cyclotron.ramp();
+      break;
+    case PHASE_COOLING:
+      if (!phaseInitialized)
+        break;
+      cyclotron.ramp();
+      break;
+    }
+    break;
+  }
+
+  case STATE_BURST:
+  {
+    switch (burstPhase)
+    {
+    case BURST_PHASE_FIRING:
+      if (!phaseInitialized)
+      {
+        cyclotron.rampInit(CYC_BURST_MAX, BURST_PHASE_LENGTH[BURST_PHASE_FIRING]);
+        break;
+      }
+      cyclotron.ramp();
+      break;
+    case BURST_PHASE_TAIL:
+      if (!phaseInitialized)
+      {
+        // A burst returns to full power, so complete that transition during
+        // its tail instead of undershooting and correcting in the next state.
+        cyclotron.rampInit(CYC_FULL, BURST_PHASE_LENGTH[BURST_PHASE_TAIL]);
+        break;
+      }
+      cyclotron.ramp();
+      break;
+    }
+    break;
+  }
+
+  case STATE_BURST_OVERHEAT:
+  {
+    switch (overheatPhase)
+    {
+    case PHASE_WARNING:
+      if (!phaseInitialized)
+      {
+        cyclotron.rampInit(CYC_BURST_WARNING, BURST_OVERHEAT_PHASE_LENGTH[PHASE_WARNING]);
+        break;
+      }
+      cyclotron.ramp();
+      break;
+    case PHASE_OVERHEAT:
+      if (!phaseInitialized)
+      {
+        cyclotron.rampInit(CYC_OFF,
+                           BURST_OVERHEAT_PHASE_LENGTH[PHASE_OVERHEAT] +
+                               BURST_OVERHEAT_PHASE_LENGTH[PHASE_COOLING] -
+                               1000);
+        break;
+      }
+      cyclotron.ramp();
+      break;
+    case PHASE_COOLING:
+      if (!phaseInitialized)
+        break;
+      cyclotron.ramp();
+      break;
+    }
+    break;
+  }
+  }
+}
+
+void getFiringRodScheme()
+{
+  switch (WBstate)
+  {
+  case STATE_ZERO:
+  case STATE_LOW_BATT:
+  case STATE_POWER_OFF:
+  case STATE_POWER_OFF_TO_ON:
+  case STATE_PARTY_MODE:
+  case STATE_PARTY_MODE_IN:
+  case STATE_PARTY_MODE_OUT:
+  case STATE_POWER_ON_TO_OFF:
+  case STATE_POWER_ON:
+  case STATE_CYCLOTRON_OFF_TO_ON:
+  case STATE_CYCLOTRON_ON_TO_OFF:
+  case STATE_CYCLOTRON_ON:
+  case STATE_CYCLOTRON_ON_TO_FULL:
+  case STATE_CYCLOTRON_FULL_TO_ON:
+  case STATE_CYCLOTRON_FULL_POWER:
+  {
+    if (!stateInitialized)
+    {
+      firingRod.clear();
+      break;
+    }
+    break;
+  }
+
+  case STATE_CAPTURE:
+  {
+    if (!stateInitialized)
+    {
+      firingRod.strobeInit(SHUFFLE, 100, 300);
+      break;
+    }
+    firingRod.strobe();
+    break;
+  }
+
+  case STATE_CAPTURE_OVERHEAT:
+  case STATE_BURST_OVERHEAT:
+  {
+    switch (overheatPhase)
+    {
+    case PHASE_WARNING:
+      if (!phaseInitialized)
+      {
+        firingRod.strobeInit(SHUFFLE, 100, 300);
+        break;
+      }
+      firingRod.strobe();
+      break;
+    case PHASE_OVERHEAT:
+      if (!phaseInitialized)
+      {
+        firingRod.strobeInit(NO_SHUFFLE, 0, 2000);
+        break;
+      }
+      firingRod.strobe();
+      break;
+    case PHASE_COOLING:
+      if (!phaseInitialized)
+        break;
+      firingRod.strobe();
+      break;
+    }
+    break;
+  }
+
+  case STATE_CAPTURE_TAIL:
+  case STATE_ALL_ON_TO_OFF:
+  {
+    if (!stateInitialized)
+    {
+      firingRod.strobeInit(NO_SHUFFLE, 0, 1000);
+      break;
+    }
+    firingRod.strobe();
+    break;
+  }
+
+  case STATE_BURST:
+  {
+    switch (burstPhase)
+    {
+    case BURST_PHASE_FIRING:
+      if (!phaseInitialized)
+      {
+        firingRod.strobeInit(SHUFFLE, 100, 300);
+        break;
+      }
+      firingRod.strobe();
+      break;
+    case BURST_PHASE_TAIL:
+      if (!phaseInitialized)
+      {
+        firingRod.strobeInit(NO_SHUFFLE, 0, 1000);
+        break;
+      }
+      firingRod.strobe();
+      break;
+    }
+    break;
+  }
+  }
+}
 //  END_SEQ of animations functions in wrist blaster states
 ////////////////////////////////////////////////
 
@@ -2677,618 +2865,353 @@ void getLEDsSchemeForThisState()
 /*   OPTIONAL POWERCELL ANIMATIONS functions in wrist blaster states   */
 /***********************************************************************/
 #ifdef POWERCELL_EXIST
-void getPowercellLEDsSchemeForThisState()
+#ifdef POWERCELL_BARMETER
+void initPowerCellBarMeterSpeedRamp(uint16_t targetSpeed, uint16_t rampDuration)
 {
-  // Some sequences need to be initialized with wrist blaster state, stageFlag is used to know if wrist blaster state is in initialization
+  powerCellBatteryPercent = constrain(map(battLevel, 20, 70, 20, 100), 20, 100);
+  powerCellRampStartInterval = powerCellAnimationInterval;
+  powerCellRampTargetInterval = constrain(targetSpeed / 2, 5, 255);
+  powerCellRampDuration = rampDuration;
+  powerCellRampStartTime = now;
 
-  switch (WBstate)
-  {
-  case STATE_ZERO:
-    break;
+  if (rampDuration == 0)
+    powerCellAnimationInterval = powerCellRampTargetInterval;
 
-  case STATE_LOW_BATT:
+  powerCellBarMeter.animations().stop().fillUpIntv(powerCellAnimationInterval, &powerCellBatteryPercent).loop();
+}
+
+void updatePowerCellBarMeterSpeedRamp()
+{
+  powerCellBatteryPercent = constrain(map(battLevel, 20, 70, 20, 100), 20, 100);
+
+  if (powerCellRampDuration != 0)
   {
-    switch (stageFlag)
+    uint32_t elapsed = min(now - powerCellRampStartTime, (uint32_t)powerCellRampDuration);
+    int32_t difference = (int32_t)powerCellRampTargetInterval - powerCellRampStartInterval;
+    powerCellAnimationInterval = powerCellRampStartInterval +
+                                 difference * elapsed / powerCellRampDuration;
+
+    // Finalize the target and mark the ramp inactive so subsequent updates
+    // do not keep recalculating an already completed interpolation.
+    if (elapsed >= powerCellRampDuration)
     {
-    case 0:
-    {
-      powerCell.lowBattInit(MEDIUM_BLINK_SP);
-      break;
+      powerCellAnimationInterval = powerCellRampTargetInterval;
+      powerCellRampDuration = 0;
     }
-    case 1:
-    {
-      powerCell.lowBatt();
-      break;
-    }
-    default:
-    {
-      DEBUG_PRINT("Invalid stageFlag in PowerCell LEDs Scheme, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
-      break;
-    }
-    }
-    break;
   }
 
-  case STATE_PARTY_MODE:
-
-  {
-    switch (stageFlag)
-    {
-    case 0:
-    {
-      powerCell.rampToIdleInit(PC_CYC_ON_UPDATE_INT, 0);
-      break;
-    }
-    case 1:
-    {
-      powerCell.rampToIdle();
-      break;
-    }
-    default:
-    {
-      DEBUG_PRINT("Invalid stageFlag in PowerCell LEDs Scheme, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
-      break;
-    }
-    }
-    break;
-  }
-
-  case STATE_PARTY_MODE_IN:
-  {
-    switch (stageFlag)
-    {
-    case 0:
-    {
-      powerCell.rampToIdleInit(PC_CYC_ON_UPDATE_INT, getDuration());
-      break;
-    }
-    case 1:
-    {
-      powerCell.rampToIdle();
-      break;
-    }
-    default:
-    {
-      DEBUG_PRINT("Invalid stageFlag in PowerCell LEDs Scheme, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
-      break;
-    }
-    }
-    break;
-  }
-
-  case STATE_PARTY_MODE_OUT:
-  {
-    switch (stageFlag)
-    {
-    case 0:
-    {
-      powerCell.rampToIdleInit(PC_CYC_ON_UPDATE_INT, 0);
-      break;
-    }
-    case 1:
-    {
-      powerCell.rampToIdle();
-      break;
-    }
-    default:
-    {
-      DEBUG_PRINT("Invalid stageFlag in PowerCell LEDs Scheme, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
-      break;
-    }
-    }
-    break;
-  }
-
-  case STATE_POWER_OFF:
-  {
-    switch (stageFlag)
-    {
-    case 0:
-    {
-      powerCell.poweredDownInit(5000);
-      break;
-    }
-    case 1:
-    {
-      powerCell.poweredDown();
-      break;
-    }
-    default:
-    {
-      DEBUG_PRINT("Invalid stageFlag in PowerCell LEDs Scheme, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
-      break;
-    }
-    }
-    break;
-  }
-
-  case STATE_POWER_OFF_TO_ON:
-  {
-    switch (stageFlag)
-    {
-    case 0:
-    {
-      powerCell.bootInit(min(getDuration(), getSpecificDuration(STATE_POWER_ON_TO_OFF)));
-      break;
-    }
-    case 1:
-    {
-      powerCell.boot();
-      break;
-    }
-    default:
-    {
-      DEBUG_PRINT("Invalid stageFlag in PowerCell LEDs Scheme, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
-      break;
-    }
-    }
-    break;
-  }
-
-  case STATE_POWER_ON_TO_OFF:
-  {
-    switch (stageFlag)
-    {
-    case 0:
-    {
-      powerCell.shutDownInit(getDuration());
-      break;
-    }
-    case 1:
-    {
-      powerCell.shutDown();
-      break;
-    }
-    default:
-    {
-      DEBUG_PRINT("Invalid stageFlag in PowerCell LEDs Scheme, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
-      break;
-    }
-    }
-    break;
-  }
-
-  case STATE_POWER_ON:
-  {
-    switch (stageFlag)
-    {
-    case 0:
-    {
-      powerCell.rampToIdleInit(PC_POWER_ON_UPDATE_INT, 0);
-      break;
-    }
-    case 1:
-    {
-      powerCell.rampToIdle();
-      break;
-    }
-    default:
-    {
-      DEBUG_PRINT("Invalid stageFlag in PowerCell LEDs Scheme, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
-      break;
-    }
-    }
-    break;
-  }
-
-  case STATE_CYCLOTRON_OFF_TO_ON:
-  {
-    switch (stageFlag)
-    {
-    case 0:
-    {
-      powerCell.rampToIdleInit(PC_CYC_ON_UPDATE_INT, getDuration());
-      break;
-    }
-    case 1:
-    {
-      powerCell.rampToIdle();
-      break;
-    }
-    default:
-    {
-      DEBUG_PRINT("Invalid stageFlag in PowerCell LEDs Scheme, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
-      break;
-    }
-    }
-    break;
-  }
-
-  case STATE_CYCLOTRON_ON_TO_OFF:
-  {
-    switch (stageFlag)
-    {
-    case 0:
-    {
-      powerCell.rampToIdleInit(PC_POWER_ON_UPDATE_INT, getDuration());
-      break;
-    }
-    case 1:
-    {
-      powerCell.rampToIdle();
-      break;
-    }
-    default:
-    {
-      DEBUG_PRINT("Invalid stageFlag in PowerCell LEDs Scheme, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
-      break;
-    }
-    }
-    break;
-  }
-
-  case STATE_CYCLOTRON_ON:
-  {
-    switch (stageFlag)
-    {
-    case 0:
-    {
-      powerCell.rampToIdleInit(PC_CYC_ON_UPDATE_INT, 0);
-      break;
-    }
-    case 1:
-    {
-      powerCell.rampToIdle();
-      break;
-    }
-    default:
-    {
-      DEBUG_PRINT("Invalid stageFlag in PowerCell LEDs Scheme, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
-      break;
-    }
-    }
-    break;
-  }
-
-  case STATE_CYCLOTRON_ON_TO_FULL:
-  {
-    switch (stageFlag)
-    {
-    case 0:
-    {
-      powerCell.rampToIdleInit(PC_CYC_FULL_UPDATE_INT, getDuration());
-      break;
-    }
-    case 1:
-    {
-      powerCell.rampToIdle();
-      break;
-    }
-    default:
-    {
-      DEBUG_PRINT("Invalid stageFlag in PowerCell LEDs Scheme, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
-      break;
-    }
-    }
-    break;
-  }
-
-  case STATE_CYCLOTRON_FULL_TO_ON:
-  {
-    switch (stageFlag)
-    {
-    case 0:
-    {
-      powerCell.rampToIdleInit(PC_CYC_ON_UPDATE_INT, getDuration());
-      break;
-    }
-    case 1:
-    {
-      powerCell.rampToIdle();
-      break;
-    }
-    default:
-    {
-      DEBUG_PRINT("Invalid stageFlag in PowerCell LEDs Scheme, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
-      break;
-    }
-    }
-    break;
-  }
-
-  case STATE_CYCLOTRON_FULL_POWER:
-  {
-    switch (stageFlag)
-    {
-    case 0:
-    {
-      powerCell.rampToIdleInit(PC_CYC_FULL_UPDATE_INT, 0);
-      break;
-    }
-    case 1:
-    {
-      powerCell.rampToIdle();
-      break;
-    }
-    default:
-    {
-      DEBUG_PRINT("Invalid stageFlag in PowerCell LEDs Scheme, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
-      break;
-    }
-    }
-    break;
-  }
-
-  case STATE_CAPTURE:
-  {
-    switch (stageFlag)
-    {
-    case 0:
-    {
-      powerCell.rampToIdleInit(PC_FIRING_MAX_UPDATE_INT, getDuration());
-      break;
-    }
-    case 1:
-    {
-      powerCell.rampToIdle();
-      break;
-    }
-    default:
-    {
-      DEBUG_PRINT("Invalid stageFlag in PowerCell LEDs Scheme, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
-      break;
-    }
-    }
-    break;
-  }
-
-  case STATE_CAPTURE_WARNING_OVERHEAT:
-  {
-    switch (stageFlag)
-    {
-    case 0:
-    {
-      powerCell.rampToIdleInit(PC_FIRING_MAX_UPDATE_INT, getDuration() - DURATION_CAPTURE_OVERHEAT);
-      break;
-    }
-    case 1:
-    {
-      powerCell.rampToIdle();
-      break;
-    }
-    case 2:
-    {
-      powerCell.rampToIdleInit(PC_CYC_ON_UPDATE_INT, min(3000, DURATION_CAPTURE_OVERHEAT - 3000));
-      break;
-    }
-    case 3:
-    {
-      powerCell.rampToIdle();
-      break;
-    }
-    default:
-    {
-      DEBUG_PRINT("Invalid stageFlag in PowerCell LEDs Scheme, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
-      break;
-    }
-    }
-    break;
-  }
-
-  case STATE_CAPTURE_TAIL:
-  {
-    switch (stageFlag)
-    {
-    case 0:
-    {
-      powerCell.rampToIdleInit(PC_CYC_ON_UPDATE_INT, getDuration());
-      break;
-    }
-    case 1:
-    {
-      powerCell.rampToIdle();
-      break;
-    }
-    default:
-    {
-      DEBUG_PRINT("Invalid stageFlag in PowerCell LEDs Scheme, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
-      break;
-    }
-    }
-    break;
-  }
-
-  case STATE_BURST:
-  {
-    switch (stageFlag)
-    {
-    case 0: // Burst initialisation
-    {
-      powerCell.rampToIdleInit(PC_FIRING_MAX_UPDATE_INT, getDuration() - DURATION_BURST_TAIL);
-      break;
-    }
-    case 1: // BURST
-    {
-      powerCell.rampToIdle();
-      break;
-    }
-    case 2: // TAIL initialisation
-    {
-      powerCell.rampToIdleInit(PC_CYC_FULL_UPDATE_INT, DURATION_BURST_TAIL);
-      break;
-    }
-    case 3: // TAIL
-    {
-      powerCell.rampToIdle();
-      break;
-    }
-    default:
-    {
-      DEBUG_PRINT("Invalid stageFlag in PowerCell LEDs Scheme, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
-      break;
-    }
-    }
-    break;
-  }
-
-  case STATE_BURST_OVERHEAT:
-  {
-    switch (stageFlag)
-    {
-    case 0: // Burst with warning initialisation
-    {
-      powerCell.rampToIdleInit(PC_FIRING_MAX_UPDATE_INT, getDuration() - DURATION_BURST_OVERHEAT);
-      break;
-    }
-    case 1: // BURST with warning
-    {
-      powerCell.rampToIdle();
-      break;
-    }
-    case 2: // OVERHEAT initialisation
-    {
-      powerCell.rampToIdleInit(PC_CYC_FULL_UPDATE_INT, min(3000, DURATION_BURST_OVERHEAT - 3000));
-      break;
-    }
-    case 3: // OVERHEAT
-    {
-      powerCell.rampToIdle();
-      break;
-    }
-    default:
-    {
-      DEBUG_PRINT("Invalid stageFlag in PowerCell LEDs Scheme, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
-      break;
-    }
-    }
-    break;
-  }
-
-  case STATE_ALL_ON_TO_OFF:
-  {
-    switch (stageFlag)
-    {
-    case 0:
-    {
-      powerCell.shutDownInit(getDuration());
-      break;
-    }
-    case 1:
-    {
-      powerCell.shutDown();
-      break;
-    }
-    default:
-    {
-      DEBUG_PRINT("Invalid stageFlag in PowerCell LEDs Scheme, state ");
-      DEBUG_PRINT(WBstate);
-      DEBUG_PRINT(", stage ");
-      DEBUG_PRINTLN(stageFlag);
-      stageFlag = 0;
-      break;
-    }
-    }
-    break;
-  }
-  }
+  powerCellBarMeter.animations().setUpdateInterval(powerCellAnimationInterval);
 }
 #endif
 
+// The state/phase flow below is shared by both Power Cell display types.
+// These backend helpers translate semantic effects into the implementation
+// selected at compile time, keeping hardware details out of the state switch.
+void powerCellOffInit()
+{
+#ifdef POWERCELL_BARMETER
+  powerCellBarMeter.animations().stop();
+#else
+  powerCell.clear();
+#endif
+}
+
+void powerCellLowBattInit()
+{
+#ifdef POWERCELL_BARMETER
+  powerCellBarMeter.animations().stop().blinkPixel(0, MEDIUM_BLINK_SP);
+#else
+  powerCell.lowBattInit(MEDIUM_BLINK_SP);
+#endif
+}
+
+void powerCellLowBattUpdate()
+{
+#ifndef POWERCELL_BARMETER
+  powerCell.lowBatt();
+#endif
+}
+
+void powerCellPoweredDownInit()
+{
+#ifdef POWERCELL_BARMETER
+  powerCellBarMeter.animations().stop().blinkPixel(0, 50, 4950, 0);
+#else
+  powerCell.poweredDownInit(5000);
+#endif
+}
+
+void powerCellPoweredDownUpdate()
+{
+#ifndef POWERCELL_BARMETER
+  powerCell.poweredDown();
+#endif
+}
+
+void powerCellBootInit(uint16_t duration)
+{
+#ifdef POWERCELL_BARMETER
+  const uint16_t steps = 1 + (POWERCELL_SEG_NUMBER / 2 + 1) * (POWERCELL_SEG_NUMBER / 2 + 2) / 2;
+  const uint16_t interval = max(5, duration / steps);
+  powerCellBatteryPercent = constrain(map(battLevel, 20, 70, 20, 100), 20, 100);
+  powerCellAnimationInterval = PC_POWER_ON_UPDATE_INT / 2;
+  powerCellBarMeter.animations().stop().downStackingBlocks(interval, 2).enqueue().fillUpIntv(powerCellAnimationInterval, &powerCellBatteryPercent).loop().enqueue().startQueue();
+#else
+  powerCell.bootInit(duration);
+#endif
+}
+
+void powerCellBootUpdate()
+{
+#ifndef POWERCELL_BARMETER
+  powerCell.boot();
+#endif
+}
+
+void initPowerCellSpeedRamp(uint16_t targetSpeed, uint16_t rampDuration)
+{
+#ifdef POWERCELL_BARMETER
+  initPowerCellBarMeterSpeedRamp(targetSpeed, rampDuration);
+#else
+  powerCell.initSpeedRamp(targetSpeed, rampDuration);
+#endif
+}
+
+void updatePowerCellSpeedRamp()
+{
+#ifdef POWERCELL_BARMETER
+  updatePowerCellBarMeterSpeedRamp();
+#else
+  powerCell.updateSpeedRamp();
+#endif
+}
+
+void powerCellShutdownInit(uint16_t duration)
+{
+#ifdef POWERCELL_BARMETER
+  const uint16_t steps = 1 + (POWERCELL_SEG_NUMBER / 2 + 1) * (POWERCELL_SEG_NUMBER / 2 + 2) / 2;
+  const uint16_t durationPerStep = max(5, duration / steps);
+  powerCellBarMeter.animations().stop().upUnstackingBlocks(durationPerStep, 2);
+#else
+  powerCell.shutDownInit(duration);
+#endif
+}
+
+void powerCellShutdownUpdate()
+{
+#ifndef POWERCELL_BARMETER
+  powerCell.shutDown();
+#endif
+}
+
+static_assert(POWERCELL_STATE_CONFIG_COUNT == STATE_LOW_BATT + 1,
+              "POWERCELL_STATE_CONFIG must contain one entry per BlasterState");
+
+uint16_t getPowerCellRampTime(uint8_t rampTime)
+{
+  switch (rampTime)
+  {
+  case PC_RAMP_TRACK:
+    return getDuration();
+  case PC_RAMP_BOOT:
+    return min(getDuration(), getSpecificDuration(STATE_POWER_ON_TO_OFF));
+  default:
+    return 0;
+  }
+}
+
+void getPowerCellScheme()
+{
+  const PowerCellStateConfig config = {
+      pgm_read_byte(&POWERCELL_STATE_CONFIG[WBstate].target),
+      pgm_read_byte(&POWERCELL_STATE_CONFIG[WBstate].rampTime)};
+
+  if (config.target != PC_TARGET_PHASED)
+  {
+    if (!stateInitialized)
+    {
+      switch (config.target)
+      {
+      case PC_TARGET_OFF:
+        powerCellOffInit();
+        break;
+      case PC_TARGET_LOW_BATT:
+        powerCellLowBattInit();
+        break;
+      case PC_TARGET_POWERED_DOWN:
+        powerCellPoweredDownInit();
+        break;
+      case PC_TARGET_BOOT:
+        powerCellBootInit(getPowerCellRampTime(config.rampTime));
+        break;
+      case PC_TARGET_SHUTDOWN:
+        powerCellShutdownInit(getPowerCellRampTime(config.rampTime));
+        break;
+      default:
+        initPowerCellSpeedRamp(getPowerCellTargetSpeed(
+                                   config.target,
+                                   !SWmain.isReleased(),
+                                   !SWcyclotron.isReleased(),
+                                   SWactivate.isPressed()),
+                               getPowerCellRampTime(config.rampTime));
+        break;
+      }
+      return;
+    }
+
+    switch (config.target)
+    {
+    case PC_TARGET_LOW_BATT:
+      powerCellLowBattUpdate();
+      break;
+    case PC_TARGET_POWERED_DOWN:
+      powerCellPoweredDownUpdate();
+      break;
+    case PC_TARGET_BOOT:
+      powerCellBootUpdate();
+      break;
+    case PC_TARGET_SHUTDOWN:
+      powerCellShutdownUpdate();
+      break;
+    case PC_TARGET_OFF:
+      break;
+    default:
+      updatePowerCellSpeedRamp();
+      break;
+    }
+    return;
+  }
+
+  // Only the three phase-driven state IDs reach this switch.
+  switch ((uint8_t)WBstate)
+  {
+
+  case STATE_CAPTURE_OVERHEAT:
+    switch (overheatPhase)
+    {
+    case PHASE_WARNING:
+      if (!phaseInitialized)
+      {
+        initPowerCellSpeedRamp(PC_FIRING_MAX_UPDATE_INT, CAPTURE_OVERHEAT_PHASE_LENGTH[PHASE_WARNING]);
+        break;
+      }
+      updatePowerCellSpeedRamp();
+      break;
+
+    case PHASE_OVERHEAT:
+      if (!phaseInitialized)
+      {
+        // Start one continuous ramp across both phases. Cooling deliberately
+        // keeps updating this ramp instead of reinitializing it at its boundary.
+        initPowerCellSpeedRamp(PC_CYC_ON_UPDATE_INT,
+                               CAPTURE_OVERHEAT_PHASE_LENGTH[PHASE_OVERHEAT] +
+                                   CAPTURE_OVERHEAT_PHASE_LENGTH[PHASE_COOLING]);
+        break;
+      }
+      updatePowerCellSpeedRamp();
+      break;
+
+    case PHASE_COOLING:
+      if (!phaseInitialized)
+        break;
+      updatePowerCellSpeedRamp();
+      break;
+    }
+    break;
+
+  case STATE_BURST:
+    switch (burstPhase)
+    {
+    case BURST_PHASE_FIRING:
+      if (!phaseInitialized)
+      {
+        initPowerCellSpeedRamp(PC_FIRING_MAX_UPDATE_INT, BURST_PHASE_LENGTH[BURST_PHASE_FIRING]);
+        break;
+      }
+      updatePowerCellSpeedRamp();
+      break;
+
+    case BURST_PHASE_TAIL:
+      if (!phaseInitialized)
+      {
+        initPowerCellSpeedRamp(PC_CYC_ON_UPDATE_INT, BURST_PHASE_LENGTH[BURST_PHASE_TAIL]);
+        break;
+      }
+      updatePowerCellSpeedRamp();
+      break;
+    }
+    break;
+
+  case STATE_BURST_OVERHEAT:
+    switch (overheatPhase)
+    {
+    case PHASE_WARNING:
+      if (!phaseInitialized)
+      {
+        initPowerCellSpeedRamp(PC_FIRING_MAX_UPDATE_INT, BURST_OVERHEAT_PHASE_LENGTH[PHASE_WARNING]);
+        break;
+      }
+      updatePowerCellSpeedRamp();
+      break;
+
+    case PHASE_OVERHEAT:
+      if (!phaseInitialized)
+      {
+        // Start one continuous ramp here and let cooling finish it.
+        initPowerCellSpeedRamp(PC_CYC_ON_UPDATE_INT,
+                               BURST_OVERHEAT_PHASE_LENGTH[PHASE_OVERHEAT] +
+                                   BURST_OVERHEAT_PHASE_LENGTH[PHASE_COOLING]);
+        break;
+      }
+      updatePowerCellSpeedRamp();
+      break;
+
+    case PHASE_COOLING:
+      if (!phaseInitialized)
+        break;
+      updatePowerCellSpeedRamp();
+      break;
+    }
+    break;
+
+  }
+}
+#endif
 //  END_SEQ of Optional PowerCell animations functions in wrist blaster states
 ////////////////////////////////////////////////
 
-void clearAllLights()
+void enterState(BlasterState next_state)
 {
-  // Clear leds
-  cyclotron.clear();
-  panelBarMeter.clear();
-  vent.clear();
-  slowBlowIndicator.clear();
-  topWhiteIndicator.clear();
-  topYellowIndicator.clear();
-  frontOrangeIndicator.clear();
-  fireButtonSingleLed.clear();
-  firingRod.clear();
-#ifdef POWERCELL_EXIST
-  powerCell.clear();
-#endif
+  // Phase-driven engines are evaluated before the state handler in loop().
+  // Select their first phase here so the very first engine pass sees valid,
+  // pending phase data rather than a phase left over from the prior sequence.
+  switch (next_state)
+  {
+  case STATE_BURST:
+    burstPhase = BURST_PHASE_FIRING;
+    phaseInitialized = false;
+    break;
 
-  // Reset trackers
+  case STATE_CAPTURE_OVERHEAT:
+  case STATE_BURST_OVERHEAT:
+    overheatPhase = PHASE_WARNING;
+    phaseInitialized = false;
+    break;
+
+  default:
+    break;
+  }
+
+  WBstate = next_state;
+  stateInitialized = false;
 }
 
 bool checkIfTrackDoneExit(BlasterState next_state)
 {
-  if (/*playingTrack >= 0 &&*/ !player.isPlaying())
+  if (!player.isPlaying())
   {
     // Track done or time elapsed, change state
-    WBstate = next_state;
-    stageFlag = 0;
+    enterState(next_state);
     return true;
   }
   return false;
@@ -3299,8 +3222,7 @@ bool checkIfSwitchExit(bool switch_state, BlasterState next_state)
   if (switch_state)
   {
     // Switch is triggered and delay has passed, change state
-    WBstate = next_state;
-    stageFlag = 0;
+    enterState(next_state);
     return true;
   }
   return false;
@@ -3308,31 +3230,33 @@ bool checkIfSwitchExit(bool switch_state, BlasterState next_state)
 
 bool checkIfTimerExit(uint16_t time, BlasterState next_state)
 {
-  if (currentTime - stateStartTime < time)
+  if (now - stateStartTime < time)
     return false;
 
-  // Timer expired ??? Change state
-  WBstate = next_state;
-  stageFlag = 0;
+  // The state timer expired; continue with the requested state.
+  enterState(next_state);
   return true;
 }
 
-uint8_t stateInitialization() // Standard initializers for most state
+bool stateInitialization() // Standard initializers for most states
 {
   playThisStateTrack();
-  stateStartTime = currentTime;
-  return 1; // End state initialization when stageFlag is 1
+  stateStartTime = now;
+  return true; // Mark the state as initialized
 }
 
 void playThisStateTrack()
 {
   if (TRACK_LENGTH[WBstate] == 0)
     player.stop();
+  else if (TRACK_LOOPING[WBstate])
+    player.loopFileNum(WBstate);
   else
-    TRACK_LOOPING[WBstate] ? player.loopFileNum(WBstate)
-                           : player.playFileNum(WBstate, TRACK_LENGTH[WBstate]);
-
-  playingTrack = WBstate;
+#ifdef PLAYER_USE_BUSY_PIN
+    player.playFileNum(WBstate);
+#else
+    player.playFileNum(WBstate, TRACK_LENGTH[WBstate]);
+#endif
 
   DEBUG_PRINTLN("Track: " + String(WBstate) + "  length: " +
                 String(TRACK_LENGTH[WBstate]) +
@@ -3342,56 +3266,44 @@ void playThisStateTrack()
 void playThisTrack(uint8_t track)
 {
 
-  TRACK_LOOPING[track] ? player.loopFileNum(track)
-                       : player.playFileNum(track, TRACK_LENGTH[track]);
-
-  playingTrack = track;
+  if (TRACK_LOOPING[track])
+    player.loopFileNum(track);
+  else
+#ifdef PLAYER_USE_BUSY_PIN
+    player.playFileNum(track);
+#else
+    player.playFileNum(track, TRACK_LENGTH[track]);
+#endif
 
   DEBUG_PRINTLN("Track: " + String(track) + "  length: " +
                 String(TRACK_LENGTH[track]) +
                 " Loop required: " + String(TRACK_LOOPING[track]));
 }
 
-bool checkPlayModeForThisState()
+uint16_t getDuration() // Get the animation/effect timeline duration for the current state
 {
-  bool shouldLoop = TRACK_LOOPING[WBstate];
-
-  // Set the proper looping mode for this state
-  if (shouldLoop != cycling)
-  {
-    shouldLoop ? player.setCyclingTrackPlaymode() : player.setSinglePlaymode();
-    cycling = shouldLoop;
-    DEBUG_PRINTLN(" Set looping to:" + String(cycling));
-
-    return true;
-  }
-  return false;
-}
-
-uint16_t getDuration() // Get track duration for the actual state
-{
-  uint8_t buffer = 0;
-  return (TRACK_LENGTH[WBstate] - AUDIO_ADVANCE - buffer);
+  const uint16_t trackLength = TRACK_LENGTH[WBstate];
+  return trackLength > AUDIO_ADVANCE ? trackLength - AUDIO_ADVANCE : 0;
 }
 
 uint16_t getSpecificDuration(BlasterState state)
-{ // Get track duration for a specific state
-  uint8_t buffer = 0;
-  return (TRACK_LENGTH[state] - AUDIO_ADVANCE - buffer);
+{ // Get the animation/effect timeline duration for a specific state
+  const uint16_t trackLength = TRACK_LENGTH[state];
+  return trackLength > AUDIO_ADVANCE ? trackLength - AUDIO_ADVANCE : 0;
 }
 
 void checkNextPreviousButton()
 {
   static uint32_t pbfirePrev = 0;
-  if (PBfire.toggleON())
+  if (PBfire.justPressed())
   {
-    pbfirePrev = currentTime;
+    pbfirePrev = now;
     return;
   }
 
-  if ((PBfire.toggleOFF()))
+  if ((PBfire.justReleased()))
   {
-    uint32_t pressDuration = currentTime - pbfirePrev;
+    uint32_t pressDuration = now - pbfirePrev;
 
     if (pressDuration < 1000)
       player.next(); // Short press ??? Next track
@@ -3405,10 +3317,10 @@ void heatLevelCooling()
   if (heatLevel == 0)
     return;
 
-  if (currentTime - heatLevelPrevUpdate > 125)
+  if (now - heatLevelPrevUpdate > 125)
   // Decrease heat level every 125ms, about 12.5secondes before going into overheat.
   {
-    heatLevelPrevUpdate = currentTime;
+    heatLevelPrevUpdate = now;
 
     if (heatLevel > 0) // Ensure that heatLevel doesn't overflow as unsigned...
       heatLevel -= 1;
@@ -3417,10 +3329,10 @@ void heatLevelCooling()
 
 void heatLevelRisingCapture() // // Increase heat level from 0 to 100 over DURATION_CAPTURE_MAX.
 {                             // HeatLevel 0 -100 %, at 100%, wrist blaster goes into overheat...
-  if (currentTime - heatLevelPrevUpdate < (DURATION_CAPTURE_MAX / 100))
+  if (now - heatLevelPrevUpdate < (DURATION_CAPTURE_MAX / 100))
     return;
 
-  heatLevelPrevUpdate = currentTime;
+  heatLevelPrevUpdate = now;
 
   heatLevel += 1;
   heatLevel = min(100, heatLevel);
@@ -3429,9 +3341,10 @@ void heatLevelRisingCapture() // // Increase heat level from 0 to 100 over DURAT
 
 void heatLevelRisingBurst() // Increase heat level by approximately 100 / MAX_BURST_SHOTS for each burst.
 {                           // HeatLevel 0 -100 %, at 100%, wrist blaster goes into overheat...
-  heatLevelPrevUpdate = currentTime;
+  heatLevelPrevUpdate = now;
 
-  heatLevel += (uint16_t)round(100.0 / MAX_BURST_SHOTS);
+  // round() replaced by integer rounding: add half the denominator before division.
+  heatLevel += (100U + MAX_BURST_SHOTS / 2U) / MAX_BURST_SHOTS;
   heatLevel = min(100, heatLevel);
   return;
 }
@@ -3439,8 +3352,13 @@ void heatLevelRisingBurst() // Increase heat level by approximately 100 / MAX_BU
 uint8_t getCaptureScaledDuration()
 {
   uint16_t maxDuration = constrain(DURATION_CAPTURE_MAX, 10000, TRACK_LENGTH[STATE_CAPTURE]);
-  uint16_t warningDuration = TRACK_LENGTH[STATE_CAPTURE_WARNING_OVERHEAT] - DURATION_CAPTURE_OVERHEAT;
-  return round(100.0 * (maxDuration - warningDuration) / maxDuration);
+  uint16_t warningDuration = CAPTURE_OVERHEAT_PHASE_LENGTH[PHASE_WARNING];
+  if (warningDuration >= maxDuration)
+    return 0;
+
+  const uint32_t numerator = 100UL * (maxDuration - warningDuration);
+  // round() replaced by integer rounding: add half the denominator before division.
+  return (numerator + maxDuration / 2U) / maxDuration;
 }
 
 #ifdef SMOKE_FEATURES_ENABLED
@@ -3449,14 +3367,14 @@ void checkSmokerEnabling()
   static uint32_t pushedDetected = 0;
   static bool flag = false;
 
-  if (PBfire.toggleON())
+  if (PBfire.justPressed())
   {
-    pushedDetected = currentTime;
+    pushedDetected = now;
     topWhiteIndicator.solid();
   }
 
-  if (PBfire.isON() &&
-      currentTime - pushedDetected >= 3000 &&
+  if (PBfire.isPressed() &&
+      now - pushedDetected >= 3000 &&
       !flag)
   {
     // Get new state
@@ -3472,7 +3390,7 @@ void checkSmokerEnabling()
   }
 
   // Return to regular leds scheme for this state
-  if (PBfire.toggleOFF())
+  if (PBfire.justReleased())
   {
     flag = false;
     topWhiteIndicator.initParam(smoker.enable() ? GREEN : RED, 50);
@@ -3483,15 +3401,10 @@ void checkSmokerEnabling()
 
 bool getPartyModeState()
 {
-  static bool partyModeState = false;
-
   // Output is like a switch
   if (INTENSIFY_IS_A_SWITCH)
-    partyModeState = PBintensify.isON();
+    return PBintensify.isPressed();
 
-  // Toggle the state when the button is pushed and release
-  else if (PBintensify.toggleOFF())
-    partyModeState = partyModeState ? false : true;
-
-  return partyModeState;
+  // Output latches on each push-button release
+  return PBintensify.latchedState();
 }

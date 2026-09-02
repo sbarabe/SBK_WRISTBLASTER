@@ -5,7 +5,7 @@
  * @author      Samuel Barabé
  * @copyright   Copyright (c) 2025-2026 Samuel Barabé
  * @license     MIT License
- * @version     1.1.0
+ * @version     2.0.0
  * @link        https://github.com/sbarabe/SBK_WRISTBLASTER
  *
  * @details
@@ -24,7 +24,7 @@
  *
  *
  * @see https://opensource.org/licenses/MIT
- * @see https://github.com/PowerBroker2/DFPlayerMini_Fast
+ * DFPlayer Mini commands are sent by the lightweight SBK_WB_PlayerEngine.
  * @see https://github.com/adafruit/Adafruit_NeoPixel
  */
 
@@ -41,9 +41,15 @@
  *  `SBK_WristBlaster_lib` folder.
  *
  * Important:
- * - Audio timing is based on track durations defined in this file — not on the BUSY pin.
- * - Incorrect durations may result in animation/audio desynchronization.
+ * - Track durations define the timeline for state transitions, animations, and effects.
+ *   When the BUSY pin is not used, they also determine audio playback completion.
+ * - Incorrect durations may desynchronize animations and effects from the audio track.
  * - Advanced users may modify animations or state transitions in the core engine logic.
+ *
+ *  HOW TO USE THIS FILE:
+ *  - Edit values only in blocks marked "USER SETTINGS".
+ *  - For "Select ONE" choices, uncomment one #define and comment out the others.
+ *  - Leave blocks marked "INTERNAL SETUP / VALIDATION" unchanged.
  *
  *  TIP: Save a backup of this file after customization.
  *
@@ -53,16 +59,15 @@
 
 #include <Arduino.h>
 
-/*********************************************/
-/*                                           */
-/*              DEBUG TO SERIAL              */
-/*                                           */
-/*********************************************/
-// DEBUG TO SERIAL information about wrist blaster states and stages this engine controlled components
-// Uncomment/comment the following line to send/stop DEBUG_TO_SERIAL_CORE info to serial
-//**********************************************************
+/******************************************************************************
+ * DEBUG TO SERIAL
+ ******************************************************************************/
+
+// --- USER SETTINGS ----------------------------------------------------------
+// Uncomment to send state and initialization diagnostics to the Serial monitor.
 // #define DEBUG_TO_SERIAL
-//**********************************************************
+
+// --- INTERNAL SETUP / VALIDATION --------------------------------------------
 #ifdef DEBUG_TO_SERIAL
 #define DEBUG_PRINTLN(x) Serial.println(x)
 #define DEBUG_PRINT(x) Serial.print(x)
@@ -76,60 +81,68 @@
 #define DEBUG_BAUDRATE 9600
 #endif
 
-/*********************************************/
-/*                                           */
-/*          MCU PINS CONFIGURATION           */
-/*                                           */
-/*********************************************/
-// Define (UNCOMMENT) only one PCB or define custom pins definition in SBK_WRISTBLASTER_PINS_DEF.h
-/*********************************************/
+/******************************************************************************
+ * MCU AND PCB PINS
+ ******************************************************************************/
+
+// --- USER SETTINGS: SELECT EXACTLY ONE --------------------------------------
+// Use CUSTOM_PINS_DEFINITION only after adding its pin map to PINS_DEF.
 // #define CUSTOM_PINS_DEFINITION
 // #define SBK_WRIST_BLASTER_PCB_V2
 // #define SBK_WRIST_BLASTER_II_PCB_Vx
 #define SBK_PROPCORE_ONE_Vx
 // #define SBK_PROPCORE_ONE_PLUS_Vx
-/*********************************************/
+
+// --- INTERNAL SETUP / VALIDATION --------------------------------------------
 #include "SBK_WRISTBLASTER_PINS_DEF.h"
 // Ensure only one PCB is defined
 #if (defined(CUSTOM_PINS_DEFINITION) + defined(SBK_WRIST_BLASTER_PCB_V2) + defined(SBK_WRIST_BLASTER_II_PCB_Vx) + defined(SBK_PROPCORE_ONE_Vx) + defined(SBK_PROPCORE_ONE_PLUS_Vx)) != 1
 #error "SBK_WRISTBLASTER_CONFIG.h : You must define a PCB, and exactly one PCB type only!"
 #endif
 
-/*********************************************/
-/*          SWITCHES AND BUTTONS             */
-/*********************************************/
-#include "SBK_WB_SwitchEngine_V1_1_0.h"
+/******************************************************************************
+ * SWITCHES AND BUTTONS
+ ******************************************************************************/
+
+// --- EXTERNAL LIBRARY DEPENDENCY --------------------------------------------
+#include <SBK_Button.h>
+
+// --- USER SETTINGS ----------------------------------------------------------
 // INTENSIFY BUTTON OR SWITCH
 // If your Intensify push button is replaced by a switch in your Wrist Blaster, set this to "true".
 // Intensify is a Push Button, set this to "false".
 const bool INTENSIFY_IS_A_SWITCH = false;
-SwitchLogicType INTENSIFY_PB_LOGIC = DIRECT_LOGIC; // Except if replace by a switch Intensify PB should always have DIRECT_LOGIC
+const ButtonLogic INTENSIFY_PB_LOGIC = ButtonLogic::NORMAL; // Except if replaced by a switch, Intensify PB should normally use NORMAL logic
 // Define others switches/buttons logic here :
 // If your switch level isn't the way you want, you could reverse it here instead of redoing your wires.
-SwitchLogicType MAIN_POWER_SW_LOGIC = DIRECT_LOGIC;      // DIRECT_LOGIC / REVERSE_LOGIC
-SwitchLogicType CYCLOTRON_POWER_SW_LOGIC = DIRECT_LOGIC; // DIRECT_LOGIC / REVERSE_LOGIC
-SwitchLogicType ACTIVATE_SW_LOGIC = DIRECT_LOGIC;        // DIRECT_LOGIC / REVERSE_LOGIC
-SwitchLogicType FIRE_PB_LOGIC = DIRECT_LOGIC;            // PB should always have DIRECT LOGIC
+const ButtonLogic MAIN_POWER_SW_LOGIC = ButtonLogic::NORMAL;      // ButtonLogic::NORMAL / ButtonLogic::INVERTED
+const ButtonLogic CYCLOTRON_POWER_SW_LOGIC = ButtonLogic::NORMAL; // ButtonLogic::NORMAL / ButtonLogic::INVERTED
+const ButtonLogic ACTIVATE_SW_LOGIC = ButtonLogic::NORMAL;        // ButtonLogic::NORMAL / ButtonLogic::INVERTED
+const ButtonLogic FIRE_PB_LOGIC = ButtonLogic::NORMAL;            // PB should normally use NORMAL logic
 
-/*********************************************/
-/*               SMOKE MACHINE               */
-/*********************************************/
+/******************************************************************************
+ * SMOKE MACHINE
+ ******************************************************************************/
+
+// --- USER SETTINGS ----------------------------------------------------------
 // **** SMOKE DEVICE HARDWARE AND CODE NOT TESTED YET ****
-// Enable or disable all smoke-related features here :
-/***********************************************************/
+// Uncomment to enable all smoke-related features.
 // #define SMOKE_FEATURES_ENABLED
-/***********************************************************/
+
 #ifdef SMOKE_FEATURES_ENABLED
-#include "SBK_WB_SmokeEngine_V1_1_0.h"
-// DEFINE the maximum time that the smoker can be ON
-const uint16_t SMOKER_MAX_ON_TIME = 15000; // in ms
-// DEFINE the minimum OFF time of the smoker, to prevent short cycling
-const uint16_t SMOKER_MIN_OFF_TIME = 10000; // in ms
+// These values apply only when smoke features are enabled.
+const uint16_t SMOKER_MAX_ON_TIME = 15000; // ms; maximum continuous ON time
+const uint16_t SMOKER_MIN_OFF_TIME = 10000; // ms; prevents short cycling
+
+// --- EXTERNAL LIBRARY DEPENDENCY --------------------------------------------
+#include <SBK_WB_SmokeEngine_V2_0_0.h>
+
+// --- INTERNAL SETUP / VALIDATION --------------------------------------------
 // Smoker is activated, if minimum off time is respected, when the wrist blaster goes into
 // STATE_CAPTURE_OVERHEAT and stop after STATE_OVERHEATED tail
 // SMOKE ENABLING :
 // Smoke effects are DISABLE when MCU is powered, you need to activate them in POWER OFF STATE with the Fire Button.
-// Hold fire button, it will show the actual state on TOP WHITE INDICATOR : Red = off, Green = ON;
+// Hold the Fire button to show the current state on the TOP WHITE INDICATOR: red = disabled, green = enabled.
 // If you hold the button for 3 second, the ENABLING/DISABLING will switch and you'll see the
 // indicator switching color for the new enable state.
 // HARWARE :
@@ -137,18 +150,26 @@ const uint16_t SMOKER_MIN_OFF_TIME = 10000; // in ms
 // There should be pins for fan and smoke device activation
 #endif // SMOKE_FEATURES_ENABLED
 
-/*********************************************/
-/*           BAR METER & DRIVER(s)           */
-/*********************************************/
-#include "SBK_WB_PanelBarMeterEngine_V1_1_0.h"
-// DEFINE BAR METER TOTAL NUMBER OF SEGEMENTS
+/******************************************************************************
+ * PANEL BAR METER
+ ******************************************************************************/
+
+// --- USER SETTINGS ----------------------------------------------------------
+const bool PBM_DIRECTION = false; // false = forward, true = reverse
 const uint8_t PBM_SEG_NUMBER = 28;
-const bool PBM_DIRECTION = FORWARD; // animation direction (FORWARD/REVERSE)
-// SELECT (uncomment) ONE DRIVER TYPE :
-/***********************************************************/
+
+// Select exactly ONE driver type:
 #define PBM_MAX72XX // MAX7219/7221 uses 3 pins serial communication : data, clock, load.
 // #define PBM_HT16K33 // I2C LEDs driver like Adafruit backpack, uses 2 pins : SDA, SDC.
-/***********************************************************/
+
+// Used only with PBM_HT16K33:
+#define PBM_HT16K33_I2C_ADDRESS 0x70
+
+// Select exactly ONE native BL28-3005 display mapping:
+#define PBM_BL28_3005SK_MAPPING // 4 anodes x 7 cathodes
+// #define PBM_BL28_3005SA_MAPPING // 7 anodes x 4 cathodes
+
+// --- INTERNAL SETUP / VALIDATION --------------------------------------------
 #if (defined(PBM_MAX72XX) + defined(PBM_HT16K33)) != 1
 #error "Panel Bar Meter LEDs driver definition in SBK_WRISTBLASTER_CONFIG.h file. Please define exactly ONE driver type (PBM_MAX72XX or PBM_HT16K33)."
 #elif defined(PBM_MAX72XX)
@@ -156,100 +177,34 @@ const bool PBM_DIRECTION = FORWARD; // animation direction (FORWARD/REVERSE)
 #pragma message("Compiling for Panel Bar Meter with MAX72xx driver")
 #elif defined(PBM_HT16K33)
 #pragma message("Compiling for Panel Bar Meter with HT16K33 driver")
-/***********************************************************/
-/* DEFINE DRIVER I2C ADDRESS IF REQUIRED     */
-#define PBM_DRIVER_ADDRESS 0x70 // for I2C drivers type
-/***********************************************************/
+#define PBM_DRIVER_ADDRESS PBM_HT16K33_I2C_ADDRESS
 #endif
+constexpr uint8_t PBM_BARDRIVE_DEVICE_INDEX = 0;
 
-/*********************************************/
-/*        BAR METER SEGMENTS MAPPING         */
-/*********************************************/
-// BAR METER SEGMENTS MAPPING FOR THE DRIVER
-// DEFINE SEGMENTS MAPPING on bar meter driver {ROW,COL}.
-// SELECT (uncomment) ONLY ONE mapping type below :
-/**************************************************/
-#define PBM_SK_MAPPING // Common anode bar meter type SK
-// #define PBM_SA_MAPPING // Common cathode bar meter type SA
-/**************************************************/
-#ifdef PBM_SK_MAPPING
-//  MAPPING 1 matrix definition, more associated with common cathode SK bar meter
+#if (defined(PBM_BL28_3005SK_MAPPING) + defined(PBM_BL28_3005SA_MAPPING)) != 1
+#error "Panel Bar Meter mapping: select exactly one BL28-3005 mapping."
+#elif defined(PBM_BL28_3005SK_MAPPING)
 //  This mapping works for this MAX72xx driver PCB "SBK_WB_BG_SK_PCB_Vx"
 //  with bar meter holder PCB "SBK_WB_BG_28SEG_PCB_Vx"
-const uint8_t PBM_SEG_MAP[28][2] = {
-    {0, 0}, // SEG #1
-    {0, 1}, // SEG #2
-    {0, 2}, // SEG #3
-    {0, 3}, // SEG #4
-    {1, 0}, // SEG #5
-    {1, 1}, // SEG #6
-    {1, 2}, // SEG #7
-    {1, 3}, // SEG #8
-    {2, 0}, // SEG #9
-    {2, 1}, // SEG #10
-    {2, 2}, // SEG #11
-    {2, 3}, // SEG #13
-    {3, 0}, // SEG #12
-    {3, 1}, // SEG #14
-    {3, 2}, // SEG #15
-    {3, 3}, // SEG #16
-    {4, 0}, // SEG #17
-    {4, 1}, // SEG #18
-    {4, 2}, // SEG #19
-    {4, 3}, // SEG #20
-    {5, 0}, // SEG #21
-    {5, 1}, // SEG #22
-    {5, 2}, // SEG #23
-    {5, 3}, // SEG #24
-    {6, 0}, // SEG #25
-    {6, 1}, // SEG #26
-    {6, 2}, // SEG #27
-    {6, 3}  // SEG #28
-};
-#elif defined(PBM_SA_MAPPING)
-//  MAPPING 2 matrix definition, more associated with common cathode SA bar meter
+#elif defined(PBM_BL28_3005SA_MAPPING)
 //  This mapping works for this MAX72xx driver PCB "SBK_WB_BG_SA_PCB_Vx"
 //  with bar meter holder PCB "SBK_WB_BG_28SEG_PCB_Vx"
-const uint8_t PBM_SEG_MAP[28][2] = {
-    {0, 0}, // SEG #1
-    {1, 0}, // SEG #2
-    {2, 0}, // SEG #3
-    {3, 0}, // SEG #4
-    {0, 1}, // SEG #5
-    {1, 1}, // SEG #6
-    {2, 1}, // SEG #7
-    {3, 1}, // SEG #8
-    {0, 2}, // SEG #9
-    {1, 2}, // SEG #10
-    {2, 2}, // SEG #11
-    {3, 2}, // SEG #13
-    {0, 3}, // SEG #12
-    {1, 3}, // SEG #14
-    {2, 3}, // SEG #15
-    {3, 3}, // SEG #16
-    {0, 4}, // SEG #17
-    {1, 4}, // SEG #18
-    {2, 4}, // SEG #19
-    {3, 4}, // SEG #20
-    {0, 5}, // SEG #21
-    {1, 5}, // SEG #22
-    {2, 5}, // SEG #23
-    {3, 5}, // SEG #24
-    {0, 6}, // SEG #25
-    {1, 6}, // SEG #26
-    {2, 6}, // SEG #27
-    {3, 6}  // SEG #28
-};
 #endif
 
-/*********************************************/
-/*            WS2812 lEDS STRIP              */
-/*********************************************/
-#include "SBK_WB_LedsStripBaseEngine_V1_1_0.h"
-const uint8_t TOTAL_LEDS_NUMBER = 19; // vent + indicators + firing jewel + cyclotron total WS21812 pixels
-/***********************************************/
-/*             LEDS INDEX                      */
-/***********************************************/
+/******************************************************************************
+ * MAIN ADDRESSABLE LED STRIP
+ ******************************************************************************/
+
+// --- EXTERNAL LIBRARY DEPENDENCIES ------------------------------------------
+#include <SBK_WB_LedsStripBaseEngine_V2_0_0.h>
+
+// --- USER SETTINGS ----------------------------------------------------------
+const uint8_t TOTAL_LEDS_NUMBER = 19; // Vent + indicators + firing rod + cyclotron
+
+// Pixel byte order choices: NEO_GRB, NEO_RGB, NEO_BGR, NEO_BRG, NEO_GBR, NEO_RBG
+#define MAIN_STRIP_COLOR_ORDER NEO_GRB
+
+// --- Pixel indexes (the first pixel is index 0) -----------------------------
 // The following sections contain indexes for the leds on the chain, starting from 0.
 // You will need to update these indexes to match where things are in the chain
 // Cyclotron, vent, indicators and firing tip index in the WS2812 wrist blaster chain :
@@ -262,61 +217,46 @@ const uint8_t LED_INDEX_SLOWBLOW = 10;    // Indicator
 const uint8_t LED_INDEX_VENT = 11;
 const uint8_t LED_INDEX_CYC_START = 12;
 const uint8_t LED_INDEX_CYC_END = 18;
-/***********************************************/
-/*                  VENT LED                   */
-/***********************************************/
-#include "SBK_WB_VentEngine_V1_1_0.h"
-/***********************************************/
-/*               CYCLOTRON LEDs                */
-/***********************************************/
-#include "SBK_WB_CyclotronEngine_V1_1_0.h"
-const bool CYCLOTRON_DIRECTION = FORWARD; // animation direction (FORWARD/REVERSE)
-// Cyclotron ring and center positions pixels for the index in the WS2812 wrist blaster chain
-// Cyclotron jewel has 7 pixels
+// --- Cyclotron jewel layout -------------------------------------------------
+const bool CYCLOTRON_DIRECTION = false; // false = forward, true = reverse
 const uint8_t CYC_NUMLEDS = 7;
-// Identify specific pixel order on the jewel
 const uint8_t CYC_RING_1ST = 1;
 const uint8_t CYC_RING_LAST = 6;
+// Center MUST either be first or last in the cyclotron ring for animations to work correctly.
 const uint8_t CYC_CENTER = 0;
-/***********************************************/
-/*               FIRE ROD LEDs                */
-/***********************************************/
-#include "SBK_WB_RodEngine_V1_1_0.h"
-// Fire Rod jewel has 7 pixels
+
+// --- Firing rod -------------------------------------------------------------
 const uint8_t ROD_NUMLEDS = 7;
-// HUE POTENTIOMETER :
-// If you have no potentiometer hooked to the FIRE_ROD_POT_PIN, disable this feature.
-// If enabled and no pot on the pin, fire rod hue will change erratically.
+// Disable if no potentiometer is connected; a floating input changes hue randomly.
 const bool HUE_POT_READY = ENABLE;
-/***********************************************/
-/*               INDICATORS LEDs               */
-/***********************************************/
-#include "SBK_WB_IndicatorEngine_V1_1_0.h"
-// Indicator flashing speeds
-const uint8_t FAST_BLINK_SP = 100;
-const uint16_t MEDIUM_BLINK_SP = 500;
-const uint16_t SLOW_BLINK_SP = 1000;
-/***********************************************/
-/*           FIRE BUTTON SINGLE LED            */
-/***********************************************/
-// This is not an addressable LED. It is a single LED driven directly from the MCU pin through a series resistor.
-// Keep the LED current below 15mA on an Arduino Nano Every pin (other MCUs may have different current limits).
-// The yellow LED typically used has a forward voltage of about 2.0V.
-// With a 5V MCU output, a 330 Ohm resistor limits the LED current to approximately 9mA.
-// You can disable this indicator here:
+
+// --- Indicator timing -------------------------------------------------------
+const uint8_t FAST_BLINK_SP = 100;    // ms
+const uint16_t MEDIUM_BLINK_SP = 500; // ms
+const uint16_t SLOW_BLINK_SP = 1000;  // ms
+
+// --- Fire-button single LED -------------------------------------------------
+// This is a directly driven LED, not an addressable pixel. Keep current below
+// the MCU limit; at 5 V, a 330-ohm resistor gives about 9 mA for a yellow LED.
 const bool FIRE_BUTTON_LED_READY = ENABLE;
 
-/***********************************************************/
-/* POWER CELL LEDS STRIP or BAR METER DISPLAY  (OPTIONAL)  */
-/***********************************************************/
+// --- EXTERNAL LIBRARY DEPENDENCY --------------------------------------------
+#include <SBK_WB_VentEngine_V2_0_0.h>
+#include <SBK_WB_CyclotronEngine_V2_0_0.h>
+#include <SBK_WB_CyclotronScheme_V2_0_0.h>
+#include <SBK_WB_RodEngine_V2_0_0.h>
+#include <SBK_WB_IndicatorEngine_V2_0_0.h>
 
-/***********************************************************/
-// If you do have a "Power Cell LEDs strip" or a "Power Cell Bar Meter Display" on your Wrist Blaster set up,
-// UNCOMMENT the right type below :
- #define POWERCELL_STRIP
+/******************************************************************************
+ * POWER CELL DISPLAY (OPTIONAL)
+ ******************************************************************************/
+
+// --- USER SETTINGS: SELECT ZERO OR ONE DISPLAY TYPE -------------------------
+// Leave both commented to build without a Power Cell display.
+#define POWERCELL_STRIP
 // #define POWERCELL_BARMETER
-/***********************************************************/
 
+// --- INTERNAL SETUP / VALIDATION --------------------------------------------
 #if (defined(POWERCELL_STRIP) + defined(POWERCELL_BARMETER)) > 1
 #error "Power Cell type : multiple types defined in SBK_WRISBLASTER_CONFIG.h. Please select only one type : POWERCELL_STRIP or POWERCELL_BARMETER."
 #endif
@@ -324,42 +264,61 @@ const bool FIRE_BUTTON_LED_READY = ENABLE;
 const uint8_t POWERCELL_NUMLEDS = 0; // Default leds count if no strip enable
 #endif
 #if defined(POWERCELL_STRIP)
-#include "SBK_WB_PowerCellLEDsStripEngine_V1_1_0.h"
-                                     // If PowerCell LEDs strip exist, define the following parameters :
-// Define the leds number in your PowerCell strip and animation DIRECTION.
-const bool POWERCELL_DIRECTION = REVERSE; // animation direction (FORWARD/REVERSE).
-const uint8_t POWERCELL_NUMLEDS = 8;      // PowerCell pixels number
-#define POWERCELL_ON_SAME_STRIP false     // true = PowerCell on the same strip as other blaster pixels, false = on a new strip alone
+
+// --- EXTERNAL LIBRARY DEPENDENCY --------------------------------------------
+#include <SBK_WB_PowerCellLEDsStripEngine_V2_0_0.h>
+
+// --- USER SETTINGS: ADDRESSABLE LED STRIP -----------------------------------
+const bool POWERCELL_DIRECTION = true; // false = forward, true = reverse
+const uint8_t POWERCELL_NUMLEDS = 8;   // PowerCell pixels number
+#define POWERCELL_ON_SAME_STRIP false  // true = PowerCell on the same strip as other blaster pixels, false = on a new strip alone
+// Color order for a PowerCell connected to LEDS_STRIP2_PIN.
+// This setting is ignored when POWERCELL_ON_SAME_STRIP is true; pixels sharing
+// one data chain must use MAIN_STRIP_COLOR_ORDER.
+// Pixel byte order choices: NEO_GRB, NEO_RGB, NEO_BGR, NEO_BRG, NEO_GBR, NEO_RBG
+#define POWERCELL_STRIP_COLOR_ORDER NEO_RGB
+
+// Used only when POWERCELL_ON_SAME_STRIP is true. Update the main LED indexes
+// if the PowerCell pixels are inserted between other main-strip pixels.
+const uint8_t POWERCELL_SHARED_STRIP_FIRST = 19;
+
+// --- INTERNAL SETUP / VALIDATION --------------------------------------------
 #if POWERCELL_ON_SAME_STRIP
 #pragma message("Compiling for Power Cell with addressable RGB LEDs hooked with other wrist blaster leds. CHECK LEDS INDEX IF LEDS HAVE WRONG BEHAVIORS.")
-                                     // Define first led index on the strip :
-const uint8_t POWERCELL_FIRST = 19; // IMPORTANT : Also check LEDS INDEX above in this code if the PowerCell LEDS are hooked in between other pixels.
+const uint8_t POWERCELL_FIRST = POWERCELL_SHARED_STRIP_FIRST;
 #else
 #pragma message("Compiling for Power Cell with addressable RGB LEDs alone on a new strip.")
 const uint8_t POWERCELL_FIRST = 0;
 #endif
 const uint8_t POWERCELL_LAST = POWERCELL_FIRST + POWERCELL_NUMLEDS - 1;
 #elif defined(POWERCELL_BARMETER)
-#include "SBK_WB_PowerCellBarMeterEngine_V1_1_0.h"
-const uint8_t POWERCELL_SEG_NUMBER = 24;
-const bool POWERCELL_DIRECTION = REVERSE; // animation direction (FORWARD/REVERSE).
 
-/***********************************************************/
-// SELECT exactly ONE Power Cell Bar Meter connection:
+// --- EXTERNAL LIBRARY DEPENDENCY --------------------------------------------
+#include <SBK_WB_PowerCellScheme_V2_0_0.h>
+
+// --- USER SETTINGS: BAR METER DISPLAY ---------------------------------------
+const uint8_t POWERCELL_SEG_NUMBER = 24;
+const bool POWERCELL_DIRECTION = true; // false = forward, true = reverse
+
+// Select exactly ONE driver/connection:
 // #define PCBM_MAX72XX_SEPARATE     // Use a separate MAX72XX for the Power Cell Bar Meter with 3 pins serial communication : data, clock, load.
 #define PCBM_MAX72XX_ON_PBM_CHAIN // Use the MAX72XX for the Power Cell Bar Meter on the same chain as the main Panel Bar Meter.
 // #define PCBM_HT16K33                   // I2C LEDs driver like Adafruit backpack, uses 2 pins : SDA, SDC.
-/***********************************************************/
 
+// Used only with PCBM_HT16K33:
+#define PCBM_HT16K33_I2C_ADDRESS 0x71
+
+// Select exactly ONE segment mapping:
+#define SBK_BarMeter24_V0
+// #define SBK_BarMeter24_V1
+
+// --- INTERNAL SETUP / VALIDATION --------------------------------------------
 #if (defined(PCBM_MAX72XX_SEPARATE) + defined(PCBM_MAX72XX_ON_PBM_CHAIN) + defined(PCBM_HT16K33)) != 1
 #error "Power Cell Bar Meter Driver in SBK_WRISTBLASTER_CONFIG.h. Please select exactly one driver/connection option."
 #endif
 #if defined(PCBM_HT16K33)
-
-/***********************************************************/
-/* DEFINE DRIVER I2C ADDRESS IF REQUIRED     */
-#define PCBM_DRIVER_ADDRESS 0x71 // for I2C drivers type
-/***********************************************************/
+#define PCBM_DRIVER_ADDRESS PCBM_HT16K33_I2C_ADDRESS
+#define PCBM_BARDRIVE_DEVICE_INDEX 0
 
 #if defined(PBM_HT16K33) && (PCBM_DRIVER_ADDRESS == PBM_DRIVER_ADDRESS)
 #error "Power Cell and Panel Bar Meter HT16K33 drivers cannot use the same I2C address."
@@ -371,166 +330,139 @@ const bool POWERCELL_DIRECTION = REVERSE; // animation direction (FORWARD/REVERS
 #error "PCBM_MAX72XX_ON_PBM_CHAIN requires the Panel Bar Meter to use PBM_MAX72XX."
 #endif
 #define PCBM_DRIVER_ADDRESS 1
+#define PCBM_BARDRIVE_DEVICE_INDEX 1
 #pragma message("Power Cell Bar Meter uses device 1 of the Panel Bar Meter MAX72xx chain")
 #elif defined(PCBM_MAX72XX_SEPARATE)
 #define PCBM_DRIVER_ADDRESS 0
+#define PCBM_BARDRIVE_DEVICE_INDEX 0
 #pragma message("Power Cell Bar Meter uses a separate MAX72xx instance")
 #endif
 #endif
 
-/***********************************************************/
-// Power Cell Bar Meter LEDs mapping for driver
-// DEFINE only one mapping type for PowerCell Bar Meter :
-#define SBK_BarMeter24_V0
-// #define SBK_BarMeter24_V1
-/**********************************************************/
-
 #if (defined(SBK_BarMeter24_V0) + defined(SBK_BarMeter24_V1)) != 1
 #error "Power Cell Bar Meter Driver setup in SBK_WRISBLASTER_CONFIG.h : You must define one and only one segments mapping."
 #elif defined(SBK_BarMeter24_V0)
-const uint8_t PCBM_SEG_MAP[24][2] = {
-    {0, 0}, // SEG #8
-    {0, 1}, // SEG #1
-    {0, 2}, // SEG #2
-    {0, 3}, // SEG #3
-    {0, 4}, // SEG #4
-    {0, 5}, // SEG #5
-    {0, 6}, // SEG #6
-    {0, 7}, // SEG #7
-    {1, 0}, // SEG #16
-    {1, 1}, // SEG #9
-    {1, 2}, // SEG #10
-    {1, 3}, // SEG #11
-    {1, 4}, // SEG #12
-    {1, 5}, // SEG #13
-    {1, 6}, // SEG #14
-    {1, 7}, // SEG #15
-    {2, 0}, // SEG #24
-    {2, 1}, // SEG #17
-    {2, 2}, // SEG #18
-    {2, 3}, // SEG #19
-    {2, 4}, // SEG #20
-    {2, 5}, // SEG #21
-    {2, 6}, // SEG #22
-    {2, 7}  // SEG #23
-};
+constexpr uint8_t PCBM_BARDRIVE_ROWS = 3;
+constexpr uint8_t PCBM_BARDRIVE_COLUMNS = 8;
 #elif defined(SBK_BarMeter24_V1)
-const uint8_t PCBM_SEG_MAP[24][2] = {
-    {0, 0}, // SEG #1
-    {0, 1}, // SEG #2
-    {0, 2}, // SEG #3
-    {0, 3}, // SEG #4
-    {0, 4}, // SEG #5
-    {0, 5}, // SEG #6
-    {0, 6}, // SEG #7
-    {0, 7}, // SEG #8
-    {1, 0}, // SEG #9
-    {1, 1}, // SEG #10
-    {1, 2}, // SEG #11
-    {1, 3}, // SEG #13
-    {1, 4}, // SEG #12
-    {1, 5}, // SEG #14
-    {1, 6}, // SEG #15
-    {1, 7}, // SEG #16
-    {2, 0}, // SEG #17
-    {2, 1}, // SEG #18
-    {2, 2}, // SEG #19
-    {2, 3}, // SEG #20
-    {2, 4}, // SEG #21
-    {2, 5}, // SEG #22
-    {2, 6}, // SEG #23
-    {2, 7}  // SEG #24
-};
+constexpr uint8_t PCBM_BARDRIVE_ROWS = 3;
+constexpr uint8_t PCBM_BARDRIVE_COLUMNS = 8;
 #endif
-/***********************************************************/
+static_assert(PCBM_BARDRIVE_ROWS * PCBM_BARDRIVE_COLUMNS == POWERCELL_SEG_NUMBER,
+              "PowerCell BarDrive matrix dimensions must match POWERCELL_SEG_NUMBER");
 #else
 #pragma message("Compiling without Power Cell.")
 #endif
 
-/***********************************************************/
-/*                POWER MONITORING OPTIONS                 */
-/***********************************************************/
-#include "SBK_WB_BattMonitoringEngine_V1_1_0.h"
-const bool POWER_MONITORING = DISABLE;         // Define if battery power measurement is ENABLE/DISABLE.
-BatteryType selectedBattery = NONE;            // Define battery type to set the correct measurement range : NONE, LIPO_2S, LIPO_3S, NIMH_5S , NIMH_6S , NIMH_7S, NIMH_8S, NIMH_9S
-const bool BATT_LOW_CUTOFF = DISABLE;          // Define if the Wrist Blaster force to LOW BATT state when battery range is in minimum (prevent battery dropping tow low and improve battery life)
-const float BATT_READING_SCALING_FACTOR = 1.0; // If the batt reading seems off (using Serial Debug to check readings), you could used this scaling factor to adjust it.
+/******************************************************************************
+ * SELECTED BAR-METER LIBRARIES
+ * External dependencies selected by the Panel and PowerCell settings above.
+ ******************************************************************************/
 
-/*********************************************/
-/*                                           */
-/*    AUDIO PLAYER definition and helpers    */
-/*                                           */
-/*********************************************/
-#include <SoftwareSerial.h>
-#include "SBK_WB_PlayerEngine_V1_1_0.h"
-const uint8_t VOLUME_MAX = 30;            // 0-30 If you want to reduce the maximum possible volume according to your amp module, set this here
-const uint8_t VOLUME_START = 20;          // 0-30 Volume at start-up, will not change if volume potentiometer doesn't exist
-const uint8_t PLAYER_COMMAND_DELAY = 150; // short delay between query/ commands : some player(s) will behave weirdly if there is no delay
-const uint16_t PLAYER_BAUDRATE = 9600;    // Native baudrate is 9600 for this player.
-// AUDIO ADVANCE
-// A short advance to call the next track before the real ending :
-// DFPlayer doesn't like when a command is call exactly at the end of a file,
-// it's not listening at this moment and may miss the command causing erratic behaviors.
-// If you got erratic playing behaviours, try to increase this advance a bit at the time :
-// if it's too much, it's gonna cut the tracks a bit in the end...
-const uint8_t AUDIO_ADVANCE = 40; // 25-50ms
-// USING BUSY PIN INSTEAD OF TRACK LENGTHS
-// Uses Busy Pin instead of track length in the logic.
-// There is a small moment at the end of a playing track when the player is not responding to command.
-// Using Busy Pin sometime make the play commands fall into that moment and cause erratic play commands.
-const bool BUSY_PIN_READY = DISABLE; // ENABLING NOT RECOMMENDED : this option is left there for coders who would like to explore this avenue...
-// VOLUME POTENTIOMETER :
-// If you have no volume potentiometer hooked to the VOL_POT_PIN, disable this feature.
-// If enabled and no pot on the pin, volume will change erratically.
+#if defined(PBM_MAX72XX) || defined(PCBM_MAX72XX_SEPARATE) || defined(PCBM_MAX72XX_ON_PBM_CHAIN)
+#include <SBK_MAX72xxSoft.h>
+#endif
+
+#if defined(PBM_HT16K33) || defined(PCBM_HT16K33)
+#include <SBK_HT16K33.h>
+#endif
+
+#define SBK_BARDRIVE_WITH_ANIM
+#define SBK_BARDRIVE_QUEUE_CAPACITY 2
+#include <SBK_BarDrive.h>
+
+/******************************************************************************
+ * BATTERY MONITORING
+ ******************************************************************************/
+
+// --- EXTERNAL DEPENDENCY ----------------------------------------------------
+#include <SBK_WB_BattMonitoringEngine_V2_0_0.h>
+
+// --- USER SETTINGS ----------------------------------------------------------
+const bool POWER_MONITORING = ENABLE;
+// Choices: NONE, LIPO_2S, LIPO_3S, NIMH_5S, NIMH_6S, NIMH_7S, NIMH_8S, NIMH_9S
+BatteryType selectedBattery = NIMH_6S;
+// When enabled, force LOW BATT state at the minimum voltage to protect the battery.
+const bool BATT_LOW_CUTOFF = DISABLE;
+// Battery-reading calibration in thousandths: 1000 = 1.000, 1025 = +2.5%, 975 = -2.5%.
+const uint16_t BATT_READING_SCALING_FACTOR = 1000;
+
+/******************************************************************************
+ * AUDIO PLAYER
+ ******************************************************************************/
+
+// --- USER SETTINGS ----------------------------------------------------------
+const uint8_t VOLUME_MAX = 30;   // 0-30; limit according to the amplifier
+const uint8_t VOLUME_START = 20; // 0-30; startup level without a volume pot
+const uint8_t PLAYER_COMMAND_DELAY = 150; // ms between player commands
+const uint16_t PLAYER_BAUDRATE = 9600;
+const uint8_t AUDIO_ADVANCE = 40; // ms; normally 25-50
+
+// Uncomment only for experimentation. Track-length timing is recommended.
+// #define PLAYER_USE_BUSY_PIN
+
+// Disable if no volume potentiometer is connected; a floating input changes volume randomly.
 const bool VOL_POT_READY = ENABLE;
 
-/****************************/
-/*     BLASTER STATES LIST  */
-/****************************/
-/*  Blaster goes through states (switch/case loop) using flags and triggers. */
-/*  Each state is a case, and each state case contain an other switch/case : initital step case for this state, other possible steps and exit steps. */
+// --- EXTERNAL DEPENDENCY ----------------------------------------------------
+#include <SBK_WB_PlayerEngine_V2_0_0.h>
+
+/******************************************************************************
+ * BLASTER STATES (INTERNAL - DO NOT REORDER)
+ ******************************************************************************/
+/* IMPORTANT STATE-INDEX INVARIANT                                              */
+/* Several tables use a BlasterState value directly as their array index:       */
+/* TRACK_LENGTH, TRACK_LOOPING, CYCLOTRON_STATE_CONFIG, and                      */
+/* POWERCELL_STATE_CONFIG. BlasterState values must therefore stay contiguous,  */
+/* start at zero, and remain in exactly the same semantic order as every table. */
+/* When adding, removing, or reordering a state, update every indexed table in  */
+/* the same change. The static_assert checks catch count mismatches, but cannot  */
+/* detect entries that have the correct count in the wrong semantic order.      */
+/*  A state represents one audio-track context and its overall blaster behavior. */
+/*  The blaster goes through states (switch/case loop) using flags and triggers. */
+/*  A state may contain phases that coordinate animation/effect transitions    */
+/*  within that same audio track without changing the main blaster state.      */
+/*  Each state is handled by one main switch case; phases add a nested switch only where needed. */
 /*  Possible blaster states for main loop switch cases: */
 enum BlasterState : uint8_t
 {
-    STATE_ZERO = 0,                      // Not a state, just an offset to align with player (DFPlayer) track numbers
-    STATE_PARTY_MODE_IN = 1,             // Intensify Switch is toggled ON, Blaster going into party mode, playing the intro track
-    STATE_PARTY_MODE_OUT = 2,            // Intensify Switch is toggled OFF, Blaster going out of party mode, playing the outro track
-    STATE_POWER_OFF_TO_ON = 3,           // "Main Power" switch has turned ON, the blaster is in the process of booting
-    STATE_POWER_ON_TO_OFF = 4,           // "Main Power" switch has turned OFF, the blaster is in the process of shutting down
-    STATE_POWER_ON = 5,                  // The wrist blaster is ON, "Main Power" switch is ON, and blaster has finished booting
-    STATE_CYCLOTRON_OFF_TO_ON = 6,       // "Cyclotron Power" switch has turned ON, the cyclotron is loading to REGULAR power...
-    STATE_CYCLOTRON_ON_TO_OFF = 7,       // "Cyclotron Power" switch has turned OFF, the cyclotron is unloading from REGULAR power...
-    STATE_CYCLOTRON_ON = 8,              // Cyclotron is idling at REGULAR power, ready to fire capture stream
-    STATE_CYCLOTRON_ON_TO_FULL = 9,      // "Activate" switch has turned ON, the cyclotron is loading to FULL power...
-    STATE_CYCLOTRON_FULL_TO_ON = 10,     // "Activate" switch has turned OFF, the cyclotron is unloading to REGULAR power...
-    STATE_CYCLOTRON_FULL_POWER = 11,     // Cyclotron is idling at FULL power, ready to fire bursts
-    STATE_CAPTURE = 12,                  // Capture stream firing ramp to max fast and keep going...
-    STATE_CAPTURE_TAIL = 13,             // Capture tail (no overheat)
-    STATE_CAPTURE_WARNING_OVERHEAT = 14, // Capture stream warning before overheat
-    STATE_BURST = 15,                    // Firing burst
-    STATE_BURST_OVERHEAT = 16,           // Burst firing with overheat warning
-    STATE_ALL_ON_TO_OFF = 17,            // All systems transitioning from ON to OFF
-    STATE_PARTY_MODE = 18,               // Intensify Switch is ON, Blaster in party mode playing music tracks
-    STATE_POWER_OFF = 19,                // The blaster is OFF, or has finished shutting down
-    STATE_LOW_BATT = 20                  // Batteries are low, goes into low batt state
+    STATE_ZERO = 0,                  // Not a state, just an offset to align with player (DFPlayer) track numbers
+    STATE_PARTY_MODE_IN = 1,         // Intensify Switch is toggled ON, Blaster going into party mode, playing the intro track
+    STATE_PARTY_MODE_OUT = 2,        // Intensify Switch is toggled OFF, Blaster going out of party mode, playing the outro track
+    STATE_POWER_OFF_TO_ON = 3,       // "Main Power" switch has turned ON, the blaster is in the process of booting
+    STATE_POWER_ON_TO_OFF = 4,       // "Main Power" switch has turned OFF, the blaster is in the process of shutting down
+    STATE_POWER_ON = 5,              // The wrist blaster is ON, "Main Power" switch is ON, and blaster has finished booting
+    STATE_CYCLOTRON_OFF_TO_ON = 6,   // "Cyclotron Power" switch has turned ON, the cyclotron is loading to REGULAR power...
+    STATE_CYCLOTRON_ON_TO_OFF = 7,   // "Cyclotron Power" switch has turned OFF, the cyclotron is unloading from REGULAR power...
+    STATE_CYCLOTRON_ON = 8,          // Cyclotron is idling at REGULAR power, ready to fire capture stream
+    STATE_CYCLOTRON_ON_TO_FULL = 9,  // "Activate" switch has turned ON, the cyclotron is loading to FULL power...
+    STATE_CYCLOTRON_FULL_TO_ON = 10, // "Activate" switch has turned OFF, the cyclotron is unloading to REGULAR power...
+    STATE_CYCLOTRON_FULL_POWER = 11, // Cyclotron is idling at FULL power, ready to fire bursts
+    STATE_CAPTURE = 12,              // Capture stream firing ramp to max fast and keep going...
+    STATE_CAPTURE_TAIL = 13,         // Capture tail (no overheat)
+    STATE_CAPTURE_OVERHEAT = 14,     // Capture stream warning before overheat
+    STATE_BURST = 15,                // Firing burst
+    STATE_BURST_OVERHEAT = 16,       // Burst firing with overheat warning
+    STATE_ALL_ON_TO_OFF = 17,        // All systems transitioning from ON to OFF
+    STATE_PARTY_MODE = 18,           // Intensify Switch is ON, Blaster in party mode playing music tracks
+    STATE_POWER_OFF = 19,            // The blaster is OFF, or has finished shutting down
+    STATE_LOW_BATT = 20              // Batteries are low, goes into low batt state
 };
 
-/****************************/
-/*     SOUND FX TRACKS      */
-/****************************/
-/* Audio track files numbers definition for soundboards DFPlayer mini  */
-/* Tracks should be mono WAVE type file, named 001.wav, 002.wav, etc. They should be place in the SD card */
-/* root folder. They are played in the order they have been put on the flash drive, not by trackname */
-/* Also, TRACK NUMBERS FIT PACK STATES, it's part of the core program, this order should be maintained/corrected that way */
-/****************************************/
-/* SOUND FX TRACKS LENGTHS AND LOOPING  */
-/****************************************/
-/* Tracks milliseconds lengths in index order : must be changed according to the yours tracks. */
-/*  Those are used to determine the track's playing end in the CORE main loop to minimize delay in switching sound FX tracks, no BUSY pin is used. */
-/*  It also prevent using the get track length functions that could cause some delay with some players */
-/*  You can get your exact track lengths in Audacity or others audio software*/
-/*  DEFINE the tracks lengths in milliseconds here :*/
-const uint16_t TRACK_LENGTH[] = {
+/******************************************************************************
+ * SOUND TRACK TIMING
+ ******************************************************************************/
+/* Audio track-number definitions for the DFPlayer Mini sound board. */
+/* Tracks should be mono WAV files named 001.wav, 002.wav, etc., and placed in the SD card root. */
+/* The DFPlayer uses the files' copy order rather than their visible filenames. */
+/* Track numbers map directly to blaster states; this order must be preserved. */
+// --- USER SETTINGS ----------------------------------------------------------
+/* Track lengths in milliseconds and index order; adjust them to match your audio files. */
+/* They define state, animation, and effect timing. Without PLAYER_USE_BUSY_PIN, they also */
+/* determine when audio playback ends, avoiding player track-length queries that may add delays. */
+/* Exact track lengths can be measured with Audacity or similar audio software. */
+/* Define the track lengths in milliseconds here: */
+constexpr uint16_t TRACK_LENGTH[] = {
     0,     // No track, just an offset to be aligned with player (DFPlayer) track number starting from 1...
     1400,  // track #1, no loop, STATE_PARTY_MODE_IN
     2700,  // track #2, no loop, STATE_PARTY_MODE_OUT
@@ -545,7 +477,7 @@ const uint16_t TRACK_LENGTH[] = {
     10000, // track #11, LOOP, STATE_CYCLOTRON_FULL_POWER
     30000, // track #12, no loop, STATE_CAPTURE
     1550,  // track #13, no loop, STATE_CAPTURE_TAIL
-    12500, // track #14, no loop, STATE_CAPTURE_WARNING_OVERHEAT
+    12500, // track #14, no loop, STATE_CAPTURE_OVERHEAT
     3500,  // track #15, no loop, STATE_BURST
     9500,  // track #16, no loop, STATE_BURST_OVERHEAT
     3000,  // track #17, no loop, STATE_ALL_ON_TO_OFF
@@ -569,7 +501,7 @@ const bool TRACK_LOOPING[] = {
     true,  // track #11, LOOP, STATE_CYCLOTRON_FULL_POWER
     false, // track #12, no loop, STATE_CAPTURE
     false, // track #13, no loop, STATE_CAPTURE_TAIL
-    false, // track #14, no loop, STATE_CAPTURE_WARNING_OVERHEAT
+    false, // track #14, no loop, STATE_CAPTURE_OVERHEAT
     false, // track #15, no loop, STATE_BURST
     false, // track #16, no loop, STATE_BURST_OVERHEAT
     false, // track #17, no loop, STATE_ALL_ON_TO_OFF
@@ -578,15 +510,80 @@ const bool TRACK_LOOPING[] = {
     false  // track #20, no loop, STATE_BATT_LOW ---> NO TRACK, just a dummy
 };
 
-/*******************************/
-/* SOME STATE/STAGE PARAMETERS */
-/*******************************/
-// SECTIONS of track length that need to be defined :
-const uint16_t DURATION_CAPTURE_OVERHEAT = 7500;     // CAPTURE_WARNING_OVERHEAT track overheat section duration
-const uint16_t DURATION_BURST_TAIL = 2000;           // BURST track tail section duration
-const uint16_t DURATION_BURST_OVERHEAT = 7500;       // BURST_OVERHEAT track overheat section duration
-const uint16_t DURATION_CAPTURE_TAKEOFF_RAMP = 1000; // To give time for the capture shot to ramp in before going in warning stage
+static_assert(sizeof(TRACK_LENGTH) / sizeof(TRACK_LENGTH[0]) == STATE_LOW_BATT + 1,
+              "TRACK_LENGTH must contain one entry for every BlasterState");
+static_assert(sizeof(TRACK_LOOPING) / sizeof(TRACK_LOOPING[0]) == STATE_LOW_BATT + 1,
+              "TRACK_LOOPING must contain one entry for every BlasterState");
+
+/******************************************************************************
+ * STATE AND EFFECT TIMING
+ ******************************************************************************/
+
+// --- USER SETTINGS ----------------------------------------------------------
+// Each state follows the timeline of its associated audio track. Phases are timed
+// animation/effect transitions inside that state and do not start another track.
+
+// STATE_CAPTURE_OVERHEAT & STATE_BURST_OVERHEAT have phases for handling
+// overheat warnings, actual overheat and cooling
+enum OverheatPhase : uint8_t
+{
+    PHASE_WARNING,  // Firing with an imminent overheat warning
+    PHASE_OVERHEAT, // The blaster has overheated, is temporarily disabled and in venting mode
+    PHASE_COOLING   // The blaster is resetting and continues cooling down
+};
+
+constexpr uint16_t CAPTURE_OVERHEAT_PHASE_LENGTH[] = {
+    6500, // Warning phase length
+    1500, // Overheat phase length
+    4500  // Cooling phase length
+};
+static_assert((uint32_t)CAPTURE_OVERHEAT_PHASE_LENGTH[PHASE_WARNING] +
+                      CAPTURE_OVERHEAT_PHASE_LENGTH[PHASE_OVERHEAT] +
+                      CAPTURE_OVERHEAT_PHASE_LENGTH[PHASE_COOLING] <=
+                  TRACK_LENGTH[STATE_CAPTURE_OVERHEAT],
+              "Capture Overheat phases exceed the Capture Overheat track length");
+static_assert((uint32_t)CAPTURE_OVERHEAT_PHASE_LENGTH[PHASE_OVERHEAT] +
+                      CAPTURE_OVERHEAT_PHASE_LENGTH[PHASE_COOLING] >=
+                  1000U,
+              "Capture overheat and cooling phases must leave at least 1000 ms for the Cyclotron ramp");
+
+constexpr uint16_t BURST_OVERHEAT_PHASE_LENGTH[] = {
+    3500, // Warning phase length
+    1500, // Overheat phase length
+    4500  // Cooling phase length
+};
+static_assert((uint32_t)BURST_OVERHEAT_PHASE_LENGTH[PHASE_WARNING] +
+                      BURST_OVERHEAT_PHASE_LENGTH[PHASE_OVERHEAT] +
+                      BURST_OVERHEAT_PHASE_LENGTH[PHASE_COOLING] <=
+                  TRACK_LENGTH[STATE_BURST_OVERHEAT],
+              "Burst Overheat phases exceed the Burst Overheat track length");
+static_assert((uint32_t)BURST_OVERHEAT_PHASE_LENGTH[PHASE_OVERHEAT] +
+                      BURST_OVERHEAT_PHASE_LENGTH[PHASE_COOLING] >=
+                  1000U,
+              "Burst overheat and cooling phases must leave at least 1000 ms for the Cyclotron ramp");
+
+// BURST sequence has phases for handling firing and tail
+enum BurstPhase : uint8_t
+{
+    BURST_PHASE_FIRING,
+    BURST_PHASE_TAIL
+};
+constexpr uint16_t BURST_PHASE_LENGTH[] = {
+    1500, // Firing phase
+    2000  // Tail phase
+};
+static_assert((uint32_t)BURST_PHASE_LENGTH[BURST_PHASE_FIRING] +
+                      BURST_PHASE_LENGTH[BURST_PHASE_TAIL] <=
+                  TRACK_LENGTH[STATE_BURST],
+              "Burst firing and tail phases exceed the Burst track length");
+
+// --- Additional state/effect settings ---------------------------------------
+// Additional portions of state timelines that need to be configured:
+const uint16_t DURATION_CAPTURE_TAKEOFF_RAMP = 1000; // Minimum Capture ramp time before entering the warning phase
 // CAPTURE shot max length before going into overheat
-const uint16_t DURATION_CAPTURE_MAX = 20000; // between 10000ms to 30000ms (capture track length) : how long before going into overheat in capture shot
+const uint16_t DURATION_CAPTURE_MAX = 20000; // 10000 ms to the Capture track length: maximum firing time before overheat
 // MAX BURST shot before going into overheat
-const uint8_t MAX_BURST_SHOTS = 5; // How many shot before overheat
+const uint8_t MAX_BURST_SHOTS = 5;                          // How many shot before overheat
+const uint8_t PBM_BLOCK_SPACING = (1 + PBM_SEG_NUMBER / 2); // Block spacing for PBM animations
+const uint8_t PBM_BLOCK_ENDING_OFFSET = 100;                // Block stop emission offset for PBM animations in ms
+const uint16_t PBM_BLOCK_ENDING_DELAY = 750;                // Block ending delay for PBM animations in ms

@@ -5,7 +5,7 @@
  *  @author      Samuel Barabé  
  *  @copyright   Copyright (c) 2025-2026 Samuel Barabé  
  *  @license     MIT License (code)  
- *  @version     1.1.0
+ *  @version     2.0.0
  *  @link        https://github.com/sbarabe/SBK_WRISTBLASTER/tree/main/SBK_WRISTBLASTER_CORE
  *
  *  For more information, visit the project page: <https://github.com/sbarabe/SBK_WRISTBLASTER/tree/main/SBK_WRISTBLASTER_CORE>.
@@ -16,7 +16,7 @@
  *  including but not limited to the warranties of merchantability or fitness for a particular purpose.
  */
 
-#include "SBK_WB_RodEngine_V1_1_0.h"
+#include "SBK_WB_RodEngine_V2_0_0.h"
 
 // #define DEBUG_TO_SERIAL
 #ifdef DEBUG_TO_SERIAL
@@ -33,27 +33,17 @@ const uint8_t DEFAULT_HUE = 42;
 
 FiringRod::FiringRod(Adafruit_NeoPixel *strip,
                      const uint8_t potPin, const bool potEnable,
-                     const uint8_t *numLeds, const uint8_t *start, const uint8_t *end)
+                     const uint8_t numLeds, const uint8_t start, const uint8_t end)
     : LedsStrip(strip),
       _POT_PIN(potPin),
       _POT_ENABLE(potEnable),
-      P_NUMLEDS(numLeds), P_START(start), P_END(end),
+      _NUM_LEDS(numLeds), _START(start), _END(end),
       _tg_brightness(0), _brightness(0),
       _ini_brightness(0),
       _shuffle(true),
       _strobeSpeed(10),
       _hue(42) // Purple hue aka red and blue
 {
-    _ini_r = new uint8_t[*P_NUMLEDS];
-    _ini_g = new uint8_t[*P_NUMLEDS];
-    _ini_b = new uint8_t[*P_NUMLEDS];
-}
-
-FiringRod::~FiringRod()
-{
-    delete[] _ini_r;
-    delete[] _ini_g;
-    delete[] _ini_b;
 }
 
 void FiringRod::begin()
@@ -64,7 +54,7 @@ void FiringRod::begin()
 
 void FiringRod::clear()
 {
-    _clearSomePixels(*P_START, *P_END);
+    _clearSomePixels(_START, _END);
     _tg_brightness = 0;
     _rampTime = 0;
 }
@@ -86,24 +76,23 @@ void FiringRod::strobeInit(bool shuffle, uint8_t tg_brightness)
 
 void FiringRod::strobeInit(bool shuffle, uint8_t tg_brightness, uint16_t rampTime)
 {
-    _iniTime = _currentTime;
+    _iniTime = _now;
     _ini_brightness = _brightness;
     _shuffle = shuffle;
 
     // Read potentiometer and map it to a hue range (0-255)
-
     _hue = _getHue();
     uint8_t r, g, b;
     _hueToRGB(_hue, r, g, b);
 
     // Set initial colors
-    for (uint8_t i = 0; i < *P_NUMLEDS; i++)
+    for (uint8_t i = 0; i < _NUM_LEDS; i++)
     {
-        _ini_r[i] = _randomScaledBrightness(r);
-        _ini_g[i] = _randomScaledBrightness(g);
-        _ini_b[i] = _randomScaledBrightness(b);
+        const uint8_t initialRed = _randomScaledBrightness(r);
+        const uint8_t initialGreen = _randomScaledBrightness(g);
+        const uint8_t initialBlue = _randomScaledBrightness(b);
 
-        _setColor(*P_START+i, _ini_r[i], _ini_g[i], _ini_b[i]);
+        _setColor(_START + i, initialRed, initialGreen, initialBlue);
     }
 
     // Boundaries check
@@ -118,12 +107,10 @@ void FiringRod::strobeInit(bool shuffle, uint8_t tg_brightness, uint16_t rampTim
 
 void FiringRod::strobe()
 {
-
-    if (_currentTime - _prevUpdate > _strobeSpeed)
+    if (_now - _prevUpdate > _strobeSpeed)
     {
         _strobeSpeed = random(_updateSpeed, 50);
-
-        _prevUpdate = _currentTime;
+        _prevUpdate = _now;
 
         _hue = _getHue();
         uint8_t r, g, b;
@@ -133,14 +120,14 @@ void FiringRod::strobe()
             _brightness = _rampParameter(_iniTime, _rampTime, _ini_brightness, _tg_brightness, _updateSpeed);
 
         // Select the LED(s) to update
-        int ledIndex = _shuffle ? random(0, *P_NUMLEDS) : -1;
+        int ledIndex = _shuffle ? random(0, _NUM_LEDS) : -1;
 
-        for (uint8_t i = 0; i < *P_NUMLEDS; i++)
+        for (uint8_t i = 0; i < _NUM_LEDS; i++)
         {
             if (_shuffle && i != ledIndex)
                 continue; // Only update one LED in shuffle mode
 
-            _setColor(*P_START+i,
+            _setColor(_START+i,
                       _randomScaledBrightness(r),
                       _randomScaledBrightness(g),
                       _randomScaledBrightness(b));
@@ -161,10 +148,9 @@ uint8_t FiringRod::_getHue()
     if (!_POT_ENABLE)
         return DEFAULT_HUE;
 
-    int potValue = analogRead(_POT_PIN);
-    uint8_t hue = map(potValue, 0, 1023, 0, 255);
-
-    return hue;
+    // Convert the 10-bit ADC reading to an 8-bit hue by discarding its two
+    // least-significant bits. This replaces map(0..1023, 0..255).
+    return analogRead(_POT_PIN) >> 2;
 }
 
 void FiringRod::_hueToRGB(uint8_t hue, uint8_t &r, uint8_t &g, uint8_t &b)

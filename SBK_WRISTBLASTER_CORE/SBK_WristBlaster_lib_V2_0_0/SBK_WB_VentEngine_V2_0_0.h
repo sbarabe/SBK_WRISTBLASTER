@@ -5,7 +5,7 @@
  *  @author      Samuel Barabé  
  *  @copyright   Copyright (c) 2025-2026 Samuel Barabé  
  *  @license     MIT License (code)  
- *  @version     1.1.0
+ *  @version     2.0.0
  *  @link        https://github.com/sbarabe/SBK_WRISTBLASTER/tree/main/SBK_WRISTBLASTER_CORE
  *
  *  For more information, visit the project page: <https://github.com/sbarabe/SBK_WRISTBLASTER/tree/main/SBK_WRISTBLASTER_CORE>.
@@ -18,9 +18,9 @@
 
 #pragma once
 
-#include "Arduino.h"
+#include <Arduino.h>
 #include <Adafruit_NeoPixel.h>
-#include "SBK_WB_LedsStripBaseEngine_V1_1_0.h"
+#include "SBK_WB_LedsStripBaseEngine_V2_0_0.h"
 
 /* GENERAL HELPERS */
 #ifndef DISABLE
@@ -38,41 +38,23 @@
 #ifndef NO_FADE
 #define NO_FADE 0
 #endif
-// Leds shuffling while strobbing
-#ifndef NO_SHUFFLE
-#define NO_SHUFFLE 0
-#endif
-#ifndef SHUFFLE
-#define SHUFFLE 1
-#endif
 
-class FiringRod : public LedsStrip
+class Vent : public LedsStrip
 {
 public:
-    FiringRod(Adafruit_NeoPixel *strip,
-              const uint8_t potPin, const bool potEnable,
-              const uint8_t *numLeds, const uint8_t *start, const uint8_t *end);
-    ~FiringRod();
+    Vent(Adafruit_NeoPixel *strip, const uint8_t pixel);
     void begin();
     void clear();
-    void strobeInit();
-    void strobeInit(bool random);
-    void strobeInit(bool random, uint8_t tg_brightness);
-    void strobeInit(bool random, uint8_t tg_brightness, uint16_t rampTime);
-    void strobe();
+    void initParam(const uint8_t color[3], uint8_t tg_brightness);
+    void initParam(const uint8_t color[3], uint8_t tg_brightness, int16_t rampTime);
+    bool ramp();
+    void flicker(uint8_t flickerAmount, uint16_t maxSpeed);
+    void solid();
 
 private:
-    const uint8_t _POT_PIN;
-    const bool _POT_ENABLE;
-    const uint8_t *P_NUMLEDS, *P_START, *P_END;
-    uint8_t *_ini_r, *_ini_g, *_ini_b;
-    uint8_t _tg_brightness, _brightness;
-    uint8_t _ini_brightness;
-    bool _shuffle;
-    uint8_t _strobeSpeed;
-    uint8_t _hue;
-    uint8_t _getHue();
-    void _hueToRGB(uint8_t hue, uint8_t &r, uint8_t &g, uint8_t &b);
-    uint8_t _randomScaledBrightness(uint8_t colorComponent);
+    const uint8_t _PIXEL;
+    uint8_t _ini_r, _tg_r;
+    uint8_t _ini_g, _tg_g;
+    uint8_t _ini_b, _tg_b;
+    uint8_t _flickerSpeed;
 };
-

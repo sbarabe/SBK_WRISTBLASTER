@@ -5,7 +5,7 @@
  *  @author      Samuel Barabé  
  *  @copyright   Copyright (c) 2025-2026 Samuel Barabé  
  *  @license     MIT License (code)  
- *  @version     1.1.0
+ *  @version     2.0.0
  *  @link        https://github.com/sbarabe/SBK_WRISTBLASTER/tree/main/SBK_WRISTBLASTER_CORE
  *
  *  For more information, visit the project page: <https://github.com/sbarabe/SBK_WRISTBLASTER/tree/main/SBK_WRISTBLASTER_CORE>.
@@ -54,10 +54,9 @@ class LedsStrip
 {
 public:
     LedsStrip(Adafruit_NeoPixel *strip);
-    virtual ~LedsStrip() = default;
 
     bool update();
-    bool update(uint32_t syncCurrentTime);
+    bool update(uint32_t now);
 
 protected:
     void _setColorAll(uint8_t start, uint8_t end, uint8_t red, uint8_t green, uint8_t blue);
@@ -70,7 +69,7 @@ protected:
 
     Adafruit_NeoPixel *_strip; // Pointer to shared NeoPixel instance
     bool _updateRequired;
-    uint32_t _currentTime;
+    uint32_t _now;
     uint32_t _prevUpdate;
     uint8_t _updateSpeed;
     uint32_t _iniTime;

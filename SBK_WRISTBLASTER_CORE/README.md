@@ -4,18 +4,16 @@ Arduino firmware for controlling the lights, sound effects, switches, indicators
 
 ## Current Release
 
-**Version 1.1.0**
+**Version 2.0.0**
 
-This release introduces an improved prop operating sequence and several bug fixes:
+This release migrates the firmware to the new 2.0 engine architecture:
 
-- Added the new `STATE_ALL_ON_TO_OFF` state for smoother sound and animation transitions.
-- Modified and added sound tracks to support the new operating sequence.
-- Added a configuration flag to enable or disable the smoke-device feature.
-- Fixed several state-machine transitions.
-- Improved smoke-device safety logic.
-- Fixed the firing-rod animation.
-- Added stronger validation of the cyclotron pixel indexes inside the animation engine.
-- Additional minor fixes and improvements.
+- Reworked the core state machine, configuration, and pin definitions.
+- Added reusable Cyclotron and Power Cell animation schemes.
+- Replaced the legacy switch handling with the `SBK_Button` library.
+- Replaced bundled bar-meter drivers with the `SBK_BarDrive`, `SBK_MAX72xx`, and `SBK_HT16K33` libraries.
+- Replaced the external DFPlayer dependency with the bundled lightweight player engine.
+- Updated the LED-strip, vent, firing-rod, indicator, smoke, battery-monitoring, and Power Cell engines.
 
 The firmware retains the features introduced in previous versions, including:
 
@@ -46,7 +44,7 @@ The following predefined pin configurations are available:
 - `SBK_PROPCORE_ONE_PLUS_Vx`
 - `CUSTOM_PINS_DEFINITION`
 
-This firmware is intended for use with a genuine **Arduino Nano Every** because of its program-memory and RAM requirements.
+The firmware supports the Arduino Nano Every and ATmega328-based Nano targets, subject to the enabled feature set and available memory.
 
 Exactly one hardware configuration must be selected in `SBK_WRISTBLASTER_CONFIG.h`.
 
@@ -55,11 +53,14 @@ Exactly one hardware configuration must be selected in `SBK_WRISTBLASTER_CONFIG.
 Install the following libraries using the Arduino IDE Library Manager:
 
 - [Adafruit NeoPixel](https://github.com/adafruit/Adafruit_NeoPixel)
-- [DFPlayerMini_Fast](https://github.com/PowerBroker2/DFPlayerMini_Fast)
+- [SBK Button](https://github.com/sbarabe/SBK_Button)
+- [SBK BarDrive](https://github.com/sbarabe/SBK_BarDrive)
+- [SBK MAX72xx](https://github.com/sbarabe/SBK_MAX72xx) when using a MAX72xx bar-meter driver
+- [SBK HT16K33](https://github.com/sbarabe/SBK_HT16K33) when using an HT16K33 bar-meter driver
 
 The firmware also uses the standard Arduino `Wire` and `SoftwareSerial` libraries.
 
-The project-specific engine and driver files are included in the `SBK_WristBlaster_lib` folder.
+The project-specific engine files are included in the `SBK_WristBlaster_lib_V2_0_0` folder.
 
 ## Installation
 
@@ -67,7 +68,7 @@ The project-specific engine and driver files are included in the `SBK_WristBlast
 
 2. Copy the `SBK_WRISTBLASTER_CORE` folder into your Arduino Sketchbook folder.
 
-3. Copy the included `SBK_WristBlaster_lib` folder into your Arduino Sketchbook `libraries` folder.
+3. Copy the included `SBK_WristBlaster_lib_V2_0_0` folder into your Arduino Sketchbook `libraries` folder.
 
 4. Install the required external Arduino libraries listed above.
 

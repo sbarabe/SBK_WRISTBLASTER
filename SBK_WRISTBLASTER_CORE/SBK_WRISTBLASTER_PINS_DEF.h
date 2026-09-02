@@ -5,7 +5,7 @@
  * @author      Samuel Barabe
  * @copyright   Copyright (c) 2025-2026 Samuel Barabe
  * @license     MIT License
- * @version     1.1.0
+ * @version     2.0.0
  * @link        https://github.com/sbarabe/SBK_WRISTBLASTER
  *
  * @details
